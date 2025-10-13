@@ -79,7 +79,7 @@ const ResultsPage = ({ gameState }) => {
           <h3 className="text-2xl font-cyber text-cyber-green mb-4">
             OVERALL ASSESSMENT
           </h3>
-          <div className={`text-4xl font-cyber font-bold mb-4 ${getAssessmentColor(scores.overallAssessment)}`}>
+          {/* <div className={`text-4xl font-cyber font-bold mb-4 ${getAssessmentColor(scores.overallAssessment)}`}>
             {scores.overallAssessment.toUpperCase()}
           </div>
           <p className="text-gray-300">
@@ -88,46 +88,84 @@ const ResultsPage = ({ gameState }) => {
             {scores.overallAssessment === 'Fair' && 'Adequate performance with some areas requiring attention. Limited mission clearance granted.'}
             {scores.overallAssessment === 'Needs Attention' && 'Performance indicates areas requiring immediate attention before mission deployment.'}
             {scores.overallAssessment === 'Requires Training' && 'Additional training required before mission deployment can be considered.'}
-          </p>
+          </p> */}
         </div>
         
         {/* Detailed Scores */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-          {/* Visual Perception */}
+          {/* Vision Results */}
           <div className="cyber-panel p-6">
             <h4 className="text-xl font-cyber text-cyber-blue mb-4">
-              👁️ VISUAL PERCEPTION
+              👁️ VISION RESULTS
             </h4>
             
             <div className="space-y-4">
-              <div className="flex justify-between items-center">
-                <span className="text-gray-300">Color Vision:</span>
-                <span className={`font-cyber ${getScoreColor(scores.colorVisionScore)}`}>
-                  {scores.colorVisionScore}%
-                </span>
-              </div>
-              
               <div className="flex justify-between items-center">
                 <span className="text-gray-300">Visual Acuity:</span>
                 <span className={`font-cyber ${getScoreColor(scores.acuityScore)}`}>
                   {scores.acuityScore}
                 </span>
               </div>
+              
+              <div className="flex justify-between items-center">
+                <span className="text-gray-300">Overall Vision Score:</span>
+                <span className={`font-cyber ${getScoreColor(scores.colorVisionScore)}`}>
+                  {scores.colorVisionScore}%
+                </span>
+              </div>
             </div>
             
             <div className="mt-4 p-3 bg-dark-bg/50 rounded text-sm text-gray-400">
-              {scores.colorVisionScore >= 80 && scores.acuityScore === '20/20' 
-                ? 'Excellent visual capabilities detected.'
-                : scores.colorVisionScore >= 60
-                ? 'Good visual performance with minor variations.'
-                : 'Visual capabilities may require corrective measures.'}
+              {scores.acuityScore === '20/20' 
+                ? 'Excellent visual acuity detected.'
+                : scores.acuityScore === '20/25' || scores.acuityScore === '20/30'
+                ? 'Good visual acuity with minor variations.'
+                : 'Visual acuity may require corrective measures.'}
+            </div>
+          </div>
+
+          {/* Color Blindness Results */}
+          <div className="cyber-panel p-6">
+            <h4 className="text-xl font-cyber text-cyber-red mb-4">
+              🎨 COLOR BLINDNESS RESULTS
+            </h4>
+            
+            <div className="space-y-4">
+              <div className="flex justify-between items-center">
+                <span className="text-gray-300">Status:</span>
+                <span className={`font-cyber ${scores.colorVisionAnalysis?.isColorBlind ? 'text-cyber-red' : 'text-cyber-green'}`}>
+                  {scores.colorVisionAnalysis?.isColorBlind ? 'DETECTED' : 'NOT DETECTED'}
+                </span>
+              </div>
+              
+              {scores.colorVisionAnalysis?.isColorBlind && (
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-300">Confidence:</span>
+                  <span className="font-cyber text-cyber-yellow">
+                    {scores.colorVisionAnalysis.confidence.toUpperCase()}
+                  </span>
+                </div>
+              )}
+              
+              <div className="flex justify-between items-center">
+                <span className="text-gray-300">Test Accuracy:</span>
+                <span className={`font-cyber ${getScoreColor(scores.colorVisionScore)}`}>
+                  {scores.colorVisionScore}%
+                </span>
+              </div>
+            </div>
+            
+            <div className="mt-4 p-3 bg-dark-bg/50 rounded text-sm text-gray-400">
+              {scores.colorVisionAnalysis?.isColorBlind 
+                ? `Red-green color deficiency detected with ${scores.colorVisionAnalysis.confidence} confidence.`
+                : 'Normal color vision detected. No color blindness indicators found.'}
             </div>
           </div>
           
-          {/* Motor Coordination */}
+          {/* Motor Results */}
           <div className="cyber-panel p-6">
             <h4 className="text-xl font-cyber text-cyber-yellow mb-4">
-              ⚡ MOTOR COORDINATION
+              ⚡ MOTOR RESULTS
             </h4>
             
             <div className="space-y-4">
@@ -147,6 +185,14 @@ const ResultsPage = ({ gameState }) => {
                     : 'N/A'}
                 </span>
               </div>
+              
+              <div className="flex justify-between items-center">
+                <span className="text-gray-300">Coordination Level:</span>
+                <span className="font-cyber text-cyber-green">
+                  {scores.motorScore.accuracy >= 80 ? 'Excellent' :
+                   scores.motorScore.accuracy >= 60 ? 'Good' : 'Needs Practice'}
+                </span>
+              </div>
             </div>
             
             <div className="mt-4 p-3 bg-dark-bg/50 rounded text-sm text-gray-400">
@@ -158,10 +204,10 @@ const ResultsPage = ({ gameState }) => {
             </div>
           </div>
           
-          {/* Computer Literacy */}
+          {/* Computer Literacy Results */}
           <div className="cyber-panel p-6">
             <h4 className="text-xl font-cyber text-cyber-purple mb-4">
-              🖥️ SYSTEM KNOWLEDGE
+              🖥️ COMPUTER LITERACY RESULTS
             </h4>
             
             <div className="space-y-4">
@@ -179,6 +225,15 @@ const ResultsPage = ({ gameState }) => {
                    scores.literacyScore >= 60 ? 'Intermediate' : 'Beginner'}
                 </span>
               </div>
+              
+              <div className="flex justify-between items-center">
+                <span className="text-gray-300">Proficiency:</span>
+                <span className="font-cyber text-cyber-blue">
+                  {scores.literacyScore >= 90 ? 'Expert' :
+                   scores.literacyScore >= 75 ? 'Proficient' : 
+                   scores.literacyScore >= 50 ? 'Basic' : 'Limited'}
+                </span>
+              </div>
             </div>
             
             <div className="mt-4 p-3 bg-dark-bg/50 rounded text-sm text-gray-400">
@@ -187,35 +242,6 @@ const ResultsPage = ({ gameState }) => {
                 : scores.literacyScore >= 60
                 ? 'Good system knowledge with minor gaps.'
                 : 'Additional system training recommended.'}
-            </div>
-          </div>
-          
-          {/* Mission Readiness */}
-          <div className="cyber-panel p-6">
-            <h4 className="text-xl font-cyber text-cyber-green mb-4">
-              🚀 MISSION READINESS
-            </h4>
-            
-            <div className="space-y-4">
-              <div className="flex justify-between items-center">
-                <span className="text-gray-300">Clearance Level:</span>
-                <span className={`font-cyber ${getAssessmentColor(scores.overallAssessment)}`}>
-                  {scores.overallAssessment === 'Excellent' ? 'ALPHA' :
-                   scores.overallAssessment === 'Good' ? 'BETA' :
-                   scores.overallAssessment === 'Fair' ? 'GAMMA' : 'RESTRICTED'}
-                </span>
-              </div>
-              
-              <div className="flex justify-between items-center">
-                <span className="text-gray-300">Deployment Status:</span>
-                <span className="font-cyber text-cyber-blue">
-                  {['Excellent', 'Good'].includes(scores.overallAssessment) ? 'APPROVED' : 'PENDING'}
-                </span>
-              </div>
-            </div>
-            
-            <div className="mt-4 p-3 bg-dark-bg/50 rounded text-sm text-gray-400">
-              Assessment completed successfully. Results archived in operator database.
             </div>
           </div>
         </div>
@@ -240,7 +266,6 @@ const ResultsPage = ({ gameState }) => {
         {/* Footer */}
         <div className="text-center mt-12 text-gray-500 text-sm font-mono">
           <p>MISSION CONTROL ASSESSMENT SYSTEM v2.1.0</p>
-          <p>Assessment ID: {results.resultId}</p>
           <p>Completed: {new Date().toLocaleString()}</p>
         </div>
       </div>

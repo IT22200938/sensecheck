@@ -212,7 +212,7 @@ const LiteracyQuiz = ({ onComplete, gameState }) => {
         )}
         
         {/* Stats */}
-        <div className="grid grid-cols-3 gap-4 mt-6">
+        <div className="grid grid-cols-2 gap-4 mt-6">
           <div className="cyber-panel p-4 text-center">
             <div className="text-lg font-cyber text-cyber-blue">
               {answers.filter(a => a.isCorrect).length}
@@ -225,13 +225,6 @@ const LiteracyQuiz = ({ onComplete, gameState }) => {
               {answers.length}
             </div>
             <div className="text-sm text-gray-400">ANSWERED</div>
-          </div>
-          
-          <div className="cyber-panel p-4 text-center">
-            <div className="text-lg font-cyber text-cyber-purple">
-              {timer.formattedTime}
-            </div>
-            <div className="text-sm text-gray-400">TIME</div>
           </div>
         </div>
       </div>

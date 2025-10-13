@@ -1,39 +1,40 @@
-// Color blindness test patterns (Ishihara-like)
-export const colorBlindnessPatterns = [
+// Ishihara color blindness test plates
+export const ishiharaPlates = [
   {
     id: 1,
-    number: 8,
-    colors: ['#ff0000', '#00ff00'], // Red-Green test
-    correctAnswer: 8,
-    type: 'protanopia' // Red-blind
-  },
-  {
-    id: 2,
-    number: 3,
-    colors: ['#ff8800', '#88ff00'], // Orange-Green test
-    correctAnswer: 3,
-    type: 'deuteranopia' // Green-blind
+    plateNumber: 1,
+    image: '/src/resources/Ishihara_1.jpg',
+    type: 'control',
+    normalVision: 12,
+    colorBlindVision: 12,
+    description: 'Control plate - both normal and color blind should see 12'
   },
   {
     id: 3,
-    number: 5,
-    colors: ['#0088ff', '#ffff00'], // Blue-Yellow test
-    correctAnswer: 5,
-    type: 'tritanopia' // Blue-blind
+    plateNumber: 3,
+    image: '/src/resources/Ishihara_3.jpg',
+    type: 'red_green_test',
+    normalVision: 6,
+    colorBlindVision: 5,
+    description: 'Normal vision sees 6, red-green deficiency sees 5'
   },
   {
-    id: 4,
-    number: 2,
-    colors: ['#ff4444', '#44ff44'], // Red-Green variation
-    correctAnswer: 2,
-    type: 'protanopia'
+    id: 11,
+    plateNumber: 11,
+    image: '/src/resources/Ishihara_11.jpg',
+    type: 'red_green_test',
+    normalVision: 6,
+    colorBlindVision: null, // Color blind sees nothing
+    description: 'Normal vision sees 6, red-green deficiency sees nothing'
   },
   {
-    id: 5,
-    number: 7,
-    colors: ['#ff0088', '#00ff88'], // Magenta-Cyan test
-    correctAnswer: 7,
-    type: 'general'
+    id: 19,
+    plateNumber: 19,
+    image: '/src/resources/Ishihara_19.jpg',
+    type: 'red_green_test',
+    normalVision: null, // Normal vision sees nothing
+    colorBlindVision: 2,
+    description: 'Normal vision sees nothing, red-green deficiency sees 2'
   }
 ];
 
@@ -121,8 +122,7 @@ export const literacyQuestions = [
 export const bubbleGameConfig = {
   rounds: [
     { duration: 20000, spawnRate: 1500, bubbleSpeed: 2.0 },    // Round 1: Easy - 1.5s intervals, slow speed
-    { duration: 20000, spawnRate: 1200, bubbleSpeed: 2.5 },   // Round 2: Medium - 1.2s intervals, medium speed  
-    { duration: 20000, spawnRate: 1000, bubbleSpeed: 3.0 }    // Round 3: Hard - 1.0s intervals, fast speed
+    { duration: 20000, spawnRate: 1000, bubbleSpeed: 3.0 }     // Round 2: Hard - 1.0s intervals, fast speed
   ],
   bubbleColors: ['#ff3366', '#00ff88', '#00f5ff', '#ffff00', '#ff8800'],
   bubbleSize: 35, // Fixed size for better clickability

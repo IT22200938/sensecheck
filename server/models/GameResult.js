@@ -12,6 +12,18 @@ const gameResultSchema = new mongoose.Schema({
     min: 0,
     max: 100
   },
+  colorVisionAnalysis: {
+    score: Number,
+    isColorBlind: Boolean,
+    confidence: {
+      type: String,
+      enum: ['low', 'medium', 'high']
+    },
+    colorBlindIndicators: Number,
+    normalVisionIndicators: Number,
+    details: String,
+    plateAnalysis: [mongoose.Schema.Types.Mixed]
+  },
   acuityScore: {
     type: String,
     required: true,

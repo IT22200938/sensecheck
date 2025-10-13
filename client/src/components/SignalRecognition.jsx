@@ -1,17 +1,19 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Stage, Layer, Circle, Text } from 'react-konva';
-import { colorBlindnessPatterns, acuitySizes, generateRandomNumber, generateRandomPosition } from '../utils/gameData';
+import { ishiharaPlates, acuitySizes, generateRandomNumber, generateRandomPosition } from '../utils/gameData';
 import { useTimer } from '../hooks/useGameState';
 
 const SignalRecognition = ({ onComplete, gameState }) => {
   const [phase, setPhase] = useState('color'); // 'color' or 'acuity'
+  const [currentPlate, setCurrentPlate] = useState(null);
   const [currentSignal, setCurrentSignal] = useState(null);
   const [userInput, setUserInput] = useState('');
+  const [seeNothing, setSeeNothing] = useState(false);
   const [results, setResults] = useState({
     colorBlindness: [],
     acuity: []
   });
-  const [currentPatternIndex, setCurrentPatternIndex] = useState(0);
+  const [currentPlateIndex, setCurrentPlateIndex] = useState(0);
   const [currentSizeIndex, setCurrentSizeIndex] = useState(0);
   const [feedback, setFeedback] = useState('');
   const [isWaiting, setIsWaiting] = useState(false);
@@ -21,20 +23,14 @@ const SignalRecognition = ({ onComplete, gameState }) => {
   
   const timer = useTimer();
   
-  // Generate color blindness signal
-  const generateColorSignal = useCallback((pattern) => {
-    // Fixed position in center of canvas
-    return {
-      id: pattern.id,
-      number: pattern.number,
-      x: 200, // Center X
-      y: 150, // Center Y
-      colors: pattern.colors,
-      correctAnswer: pattern.correctAnswer,
-      type: pattern.type,
-      size: 80
-    };
-  }, []);
+  // Start color blindness test
+  useEffect(() => {
+    if (phase === 'color' && currentPlateIndex < ishiharaPlates.length) {
+      const plate = ishiharaPlates[currentPlateIndex];
+      setCurrentPlate(plate);
+      timer.restart();
+    }
+  }, [phase, currentPlateIndex, timer]);
   
   // Generate acuity signal
   const generateAcuitySignal = useCallback((sizeConfig, fixedNumber) => {
@@ -50,17 +46,7 @@ const SignalRecognition = ({ onComplete, gameState }) => {
       label: sizeConfig.label
     };
   }, []);
-  
-  // Start color blindness test
-  useEffect(() => {
-    if (phase === 'color' && currentPatternIndex < colorBlindnessPatterns.length) {
-      const pattern = colorBlindnessPatterns[currentPatternIndex];
-      const signal = generateColorSignal(pattern);
-      setCurrentSignal(signal);
-      timer.restart();
-    }
-  }, [phase, currentPatternIndex, generateColorSignal, timer]);
-  
+
   // Start acuity test
   useEffect(() => {
     if (phase === 'acuity' && currentSizeIndex < acuitySizes.length) {
@@ -83,23 +69,67 @@ const SignalRecognition = ({ onComplete, gameState }) => {
   
   const handleSubmit = useCallback((e) => {
     e.preventDefault();
-    if (!currentSignal || isWaiting) return;
+    if ((!currentPlate && !currentSignal) || isWaiting) return;
     
     timer.stop();
     const reactionTime = timer.time;
-    const userAnswer = parseInt(userInput);
-    const isCorrect = userAnswer === currentSignal.correctAnswer;
     
     setIsWaiting(true);
     
     if (phase === 'color') {
+      // Handle Ishihara plate response
+      const userAnswer = seeNothing ? null : parseInt(userInput);
+      
+      // Determine if response is correct based on plate type and user answer
+      let isCorrect = false;
+      let indicatesColorBlind = false;
+      let indicatesNormal = false;
+      
+      if (currentPlate.type === 'control') {
+        // Control plate - both should see the same number
+        isCorrect = userAnswer === currentPlate.normalVision;
+      } else if (currentPlate.type === 'red_green_test') {
+        // Test plate logic based on what normal and color blind vision should see
+        if (currentPlate.normalVision !== null && currentPlate.colorBlindVision === null) {
+          // Normal sees number, color blind sees nothing (like plate 11)
+          if (userAnswer === currentPlate.normalVision) {
+            isCorrect = true;
+            indicatesNormal = true;
+          } else if (userAnswer === null || userAnswer !== currentPlate.normalVision) {
+            isCorrect = true; // Consider it correct for color blind detection
+            indicatesColorBlind = true;
+          }
+        } else if (currentPlate.normalVision === null && currentPlate.colorBlindVision !== null) {
+          // Normal sees nothing, color blind sees number (like plate 19)
+          if (userAnswer === null) {
+            isCorrect = true;
+            indicatesNormal = true;
+          } else if (userAnswer === currentPlate.colorBlindVision || userAnswer !== null) {
+            isCorrect = true; // Consider it correct for color blind detection
+            indicatesColorBlind = true;
+          }
+        } else {
+          // Both see different numbers (like plate 3)
+          if (userAnswer === currentPlate.normalVision) {
+            isCorrect = true;
+            indicatesNormal = true;
+          } else if (userAnswer === currentPlate.colorBlindVision) {
+            isCorrect = true;
+            indicatesColorBlind = true;
+          }
+        }
+      }
+      
       const result = {
-        patternId: currentSignal.id,
+        plateNumber: currentPlate.plateNumber,
         userAnswer,
-        correctAnswer: currentSignal.correctAnswer,
+        normalVision: currentPlate.normalVision,
+        colorBlindVision: currentPlate.colorBlindVision,
+        type: currentPlate.type,
         isCorrect,
-        reactionTime,
-        type: currentSignal.type
+        indicatesColorBlind,
+        indicatesNormal,
+        reactionTime
       };
       
       setResults(prev => ({
@@ -107,27 +137,31 @@ const SignalRecognition = ({ onComplete, gameState }) => {
         colorBlindness: [...prev.colorBlindness, result]
       }));
       
-      setFeedback(isCorrect ? 'SIGNAL CONFIRMED' : 'SIGNAL MISMATCH');
+      setFeedback(isCorrect ? 'SIGNAL CONFIRMED' : 'SIGNAL RECORDED');
       
       setTimeout(() => {
-        if (currentPatternIndex < colorBlindnessPatterns.length - 1) {
-          setCurrentPatternIndex(prev => prev + 1);
+        if (currentPlateIndex < ishiharaPlates.length - 1) {
+          setCurrentPlateIndex(prev => prev + 1);
           setUserInput('');
+          setSeeNothing(false);
           setFeedback('');
           setIsWaiting(false);
         } else {
           // Move to acuity test
           setPhase('acuity');
           setUserInput('');
+          setSeeNothing(false);
           setFeedback('');
           setIsWaiting(false);
-          setCurrentNumber(null); // Reset for acuity phase
-          acuityNumbersRef.current = {}; // Clear stored numbers
-          setAcuityAttempts({}); // Clear attempt tracking
+          setCurrentNumber(null);
+          acuityNumbersRef.current = {};
+          setAcuityAttempts({});
         }
       }, 1500);
       
     } else if (phase === 'acuity') {
+      const userAnswer = parseInt(userInput);
+      const isCorrect = userAnswer === currentSignal.correctAnswer;
       const currentAttempt = acuityAttempts[currentSizeIndex] || 0;
       const result = {
         sizeId: currentSignal.id,
@@ -182,7 +216,7 @@ const SignalRecognition = ({ onComplete, gameState }) => {
         }
       }
     }
-  }, [currentSignal, userInput, timer, phase, currentPatternIndex, currentSizeIndex, isWaiting]);
+  }, [currentPlate, currentSignal, userInput, seeNothing, timer, phase, currentPlateIndex, currentSizeIndex, isWaiting, acuityAttempts]);
   
   const completeTest = useCallback(() => {
     // Find smallest correctly identified size
@@ -201,41 +235,55 @@ const SignalRecognition = ({ onComplete, gameState }) => {
     onComplete();
   }, [results, gameState, onComplete]);
   
-  const renderSignal = () => {
-    if (!currentSignal) return null;
-    
-    return (
-      <Stage width={400} height={300}>
-        <Layer>
-          <Circle
-            x={currentSignal.x}
-            y={currentSignal.y}
-            radius={currentSignal.size / 2}
-            fill={currentSignal.colors[0]}
-            stroke={currentSignal.colors[1] || currentSignal.colors[0]}
-            strokeWidth={3}
-            shadowColor="rgba(0, 245, 255, 0.5)"
-            shadowBlur={10}
+  const renderTestContent = () => {
+    if (phase === 'color' && currentPlate) {
+      return (
+        <div className="flex justify-center mb-6">
+          <img 
+            src={currentPlate.image} 
+            alt={`Ishihara Plate ${currentPlate.plateNumber}`}
+            className="max-w-sm max-h-80 rounded-lg border-2 border-cyber-blue"
+            style={{ filter: 'brightness(1.1) contrast(1.1)' }}
           />
-          <Text
-            x={currentSignal.x}
-            y={currentSignal.y}
-            text={currentSignal.number.toString()}
-            fontSize={currentSignal.size * 0.5}
-            fontFamily="Orbitron"
-            fill="white"
-            align="center"
-            verticalAlign="middle"
-            offsetX={currentSignal.size * 0.25}
-            offsetY={currentSignal.size * 0.25}
-            width={currentSignal.size * 0.5}
-            height={currentSignal.size * 0.5}
-            fontStyle="bold"
-            listening={false}
-          />
-        </Layer>
-      </Stage>
-    );
+        </div>
+      );
+    } else if (phase === 'acuity' && currentSignal) {
+      return (
+        <div className="flex justify-center mb-6">
+          <Stage width={400} height={300}>
+            <Layer>
+              <Circle
+                x={currentSignal.x}
+                y={currentSignal.y}
+                radius={currentSignal.size / 2}
+                fill={currentSignal.colors[0]}
+                stroke={currentSignal.colors[1] || currentSignal.colors[0]}
+                strokeWidth={3}
+                shadowColor="rgba(0, 245, 255, 0.5)"
+                shadowBlur={10}
+              />
+              <Text
+                x={currentSignal.x}
+                y={currentSignal.y}
+                text={currentSignal.number.toString()}
+                fontSize={currentSignal.size * 0.5}
+                fontFamily="Orbitron"
+                fill="white"
+                align="center"
+                verticalAlign="middle"
+                offsetX={currentSignal.size * 0.25}
+                offsetY={currentSignal.size * 0.25}
+                width={currentSignal.size * 0.5}
+                height={currentSignal.size * 0.5}
+                fontStyle="bold"
+                listening={false}
+              />
+            </Layer>
+          </Stage>
+        </div>
+      );
+    }
+    return null;
   };
   
   return (
@@ -251,7 +299,7 @@ const SignalRecognition = ({ onComplete, gameState }) => {
           </p>
           <div className="text-sm text-gray-400 mt-2">
             {phase === 'color' 
-              ? `Pattern ${currentPatternIndex + 1} of ${colorBlindnessPatterns.length}`
+              ? `Plate ${currentPlateIndex + 1} of ${ishiharaPlates.length}`
               : `Acuity Level ${currentSizeIndex + 1} ${(acuityAttempts[currentSizeIndex] || 0) > 0 ? '(Attempt 2)' : ''}`
             }
           </div>
@@ -259,22 +307,44 @@ const SignalRecognition = ({ onComplete, gameState }) => {
         
         {/* Signal Display */}
         <div className="cyber-panel p-8 mb-6">
-          <div className="flex justify-center mb-6">
-            {renderSignal()}
-          </div>
+          {renderTestContent()}
           
           {feedback && (
             <div className={`text-center text-lg font-cyber mb-4 ${
-              feedback.includes('CONFIRMED') ? 'text-cyber-green' : 'text-cyber-red'
+              feedback.includes('CONFIRMED') || feedback.includes('RECORDED') ? 'text-cyber-green' : 'text-cyber-red'
             }`}>
               {feedback}
             </div>
           )}
           
           <form onSubmit={handleSubmit} className="text-center">
+            {phase === 'color' && (
+              <div className="mb-4">
+                <div className="flex items-center justify-center gap-4 mb-4">
+                  <label className="flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={seeNothing}
+                      onChange={(e) => {
+                        setSeeNothing(e.target.checked);
+                        if (e.target.checked) {
+                          setUserInput('');
+                        }
+                      }}
+                      className="mr-2 w-4 h-4 text-cyber-blue bg-dark-bg border-cyber-blue rounded focus:ring-cyber-blue"
+                      disabled={isWaiting}
+                    />
+                    <span className="text-sm font-cyber text-cyber-yellow">
+                      I SEE NOTHING / NO NUMBER
+                    </span>
+                  </label>
+                </div>
+              </div>
+            )}
+            
             <div className="mb-4">
               <label className="block text-sm font-cyber text-gray-300 mb-2">
-                IDENTIFY SIGNAL NUMBER
+                {phase === 'color' ? 'IDENTIFY NUMBER IN PLATE' : 'IDENTIFY SIGNAL NUMBER'}
               </label>
               <input
                 type="number"
@@ -282,16 +352,17 @@ const SignalRecognition = ({ onComplete, gameState }) => {
                 onChange={(e) => setUserInput(e.target.value)}
                 className="cyber-input w-32 text-center text-xl"
                 min="0"
-                max="9"
-                disabled={isWaiting}
-                autoFocus
-                required
+                max="12"
+                disabled={isWaiting || seeNothing}
+                autoFocus={!seeNothing}
+                required={!seeNothing}
+                placeholder={seeNothing ? "Nothing" : "Enter number"}
               />
             </div>
             
             <button
               type="submit"
-              disabled={isWaiting || !userInput}
+              disabled={isWaiting || (!userInput && !seeNothing)}
               className="cyber-button px-8"
             >
               {isWaiting ? 'PROCESSING...' : 'CONFIRM SIGNAL'}
@@ -304,9 +375,6 @@ const SignalRecognition = ({ onComplete, gameState }) => {
           <div className="flex justify-between items-center text-sm">
             <span className="text-gray-400">
               Phase: {phase === 'color' ? 'Color Recognition' : 'Acuity Test'}
-            </span>
-            <span className="text-cyber-blue font-mono">
-              Time: {timer.formattedTime}
             </span>
           </div>
         </div>

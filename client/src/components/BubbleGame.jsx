@@ -306,12 +306,6 @@ const BubbleGame = ({ onComplete, gameState }) => {
             </div>
             {gameActive && (
               <div className="flex flex-col items-center gap-1">
-                <div className="text-xs text-gray-400 font-mono">
-                  Next lanes: {bubbleGameConfig.lanePattern.slice(
-                    globalBubbleCountRef.current % bubbleGameConfig.lanePattern.length,
-                    (globalBubbleCountRef.current % bubbleGameConfig.lanePattern.length) + 5
-                  ).map(lane => lane + 1).join(' → ')}...
-                </div>
                 <div className="text-xs text-cyber-blue font-cyber">
                   Next bubble: Lane {bubbleGameConfig.lanePattern[globalBubbleCountRef.current % bubbleGameConfig.lanePattern.length] + 1}
                 </div>

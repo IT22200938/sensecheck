@@ -3,15 +3,148 @@
  */
 
 /**
- * Calculate color vision score based on Ishihara-like pattern results
- * @param {Array} results - Array of user responses with correct answers
- * @returns {number} Score from 0-100
+ * Calculate color vision score and detect color blindness based on Ishihara plates
+ * @param {Array} results - Array of Ishihara plate test responses
+ * @returns {Object} Color vision analysis with score and color blindness detection
  */
 function calculateColorVisionScore(results) {
-  if (!results || results.length === 0) return 0;
+  if (!results || results.length === 0) {
+    return {
+      score: 0,
+      isColorBlind: false,
+      confidence: 'low',
+      details: 'No test data available'
+    };
+  }
   
-  const correctAnswers = results.filter(result => result.userAnswer === result.correctAnswer).length;
-  return Math.round((correctAnswers / results.length) * 100);
+  // Analyze each plate response
+  let correctResponses = 0;
+  let colorBlindIndicators = 0;
+  let normalVisionIndicators = 0;
+  
+  const plateAnalysis = results.map(result => {
+    const { plateNumber, userAnswer, normalVision, colorBlindVision, type } = result;
+    
+    let interpretation = 'unknown';
+    let indicatesColorBlind = false;
+    let indicatesNormal = false;
+    
+    // Analyze based on plate type and user response
+    if (type === 'control') {
+      // Control plates - both normal and color blind should see the same thing
+      if (userAnswer === normalVision) {
+        correctResponses++;
+        interpretation = 'normal_response';
+      } else {
+        interpretation = 'incorrect_response';
+      }
+    } else if (type === 'red_green_test') {
+      if (plateNumber === 11) {
+        // Plate 11: Normal sees 6, color blind sees nothing
+        if (userAnswer === 6) {
+          correctResponses++;
+          normalVisionIndicators++;
+          interpretation = 'normal_vision_response';
+          indicatesNormal = true;
+        } else if (userAnswer === null || userAnswer === 'nothing') {
+          correctResponses++;
+          colorBlindIndicators++;
+          interpretation = 'color_blind_response';
+          indicatesColorBlind = true;
+        } else {
+          // Wrong answer but consider it correct for color blind if it's not 6
+          if (userAnswer !== 6) {
+            colorBlindIndicators++;
+            interpretation = 'likely_color_blind_response';
+            indicatesColorBlind = true;
+          }
+        }
+      } else if (plateNumber === 19) {
+        // Plate 19: Normal sees nothing, color blind sees 2
+        if (userAnswer === null || userAnswer === 'nothing') {
+          correctResponses++;
+          normalVisionIndicators++;
+          interpretation = 'normal_vision_response';
+          indicatesNormal = true;
+        } else if (userAnswer === 2) {
+          correctResponses++;
+          colorBlindIndicators++;
+          interpretation = 'color_blind_response';
+          indicatesColorBlind = true;
+        } else {
+          // Wrong answer but if they see a number when normal sees nothing, likely color blind
+          if (userAnswer !== null && userAnswer !== 'nothing') {
+            colorBlindIndicators++;
+            interpretation = 'likely_color_blind_response';
+            indicatesColorBlind = true;
+          }
+        }
+      } else {
+        // Other test plates (like plate 3: normal sees 6, color blind sees 5)
+        if (userAnswer === normalVision) {
+          correctResponses++;
+          normalVisionIndicators++;
+          interpretation = 'normal_vision_response';
+          indicatesNormal = true;
+        } else if (userAnswer === colorBlindVision) {
+          correctResponses++;
+          colorBlindIndicators++;
+          interpretation = 'color_blind_response';
+          indicatesColorBlind = true;
+        } else {
+          interpretation = 'incorrect_response';
+        }
+      }
+    }
+    
+    return {
+      plateNumber,
+      userAnswer,
+      interpretation,
+      indicatesColorBlind,
+      indicatesNormal
+    };
+  });
+  
+  // Determine color blindness
+  const totalTestPlates = results.filter(r => r.type === 'red_green_test').length;
+  const colorBlindScore = colorBlindIndicators;
+  const normalVisionScore = normalVisionIndicators;
+  
+  // Color blindness determination logic
+  let isColorBlind = false;
+  let confidence = 'low';
+  
+  if (totalTestPlates >= 2) {
+    if (colorBlindIndicators > normalVisionIndicators) {
+      isColorBlind = true;
+      confidence = colorBlindIndicators >= 2 ? 'high' : 'medium';
+    } else if (normalVisionIndicators > colorBlindIndicators) {
+      isColorBlind = false;
+      confidence = normalVisionIndicators >= 2 ? 'high' : 'medium';
+    } else {
+      // Equal indicators or unclear
+      isColorBlind = false;
+      confidence = 'low';
+    }
+  }
+  
+  // Calculate overall score (0-100)
+  const accuracyScore = Math.round((correctResponses / results.length) * 100);
+  
+  return {
+    score: accuracyScore,
+    isColorBlind,
+    confidence,
+    colorBlindIndicators,
+    normalVisionIndicators,
+    plateAnalysis,
+    details: `${correctResponses}/${results.length} plates correctly identified. ${
+      isColorBlind ? 
+      `Red-green color deficiency detected (confidence: ${confidence})` : 
+      `Normal color vision (confidence: ${confidence})`
+    }`
+  };
 }
 
 /**
@@ -136,13 +269,14 @@ function calculateOverallAssessment(scores) {
  * @returns {Object} Processed scores and assessment
  */
 function processGameResults(gameData) {
-  const colorVisionScore = calculateColorVisionScore(gameData.signalRecognition?.colorBlindnessResults || []);
+  const colorVisionAnalysis = calculateColorVisionScore(gameData.signalRecognition?.colorBlindnessResults || []);
   const acuityScore = calculateAcuityScore(gameData.signalRecognition?.smallestCorrectSize || 10);
   const motorScore = calculateMotorScore(gameData.bubbleGame || {});
   const literacyScore = calculateLiteracyScore(gameData.literacyQuiz || {});
   
   const scores = {
-    colorVisionScore,
+    colorVisionScore: colorVisionAnalysis.score,
+    colorVisionAnalysis, // Include full analysis
     acuityScore,
     motorScore,
     literacyScore
