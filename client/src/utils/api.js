@@ -9,57 +9,105 @@ const api = axios.create({
   },
 });
 
-// Request interceptor for debugging
-api.interceptors.request.use(
-  (config) => {
-    console.log('API Request:', config.method?.toUpperCase(), config.url);
-    return config;
-  },
-  (error) => {
-    return Promise.reject(error);
+// Interaction Logging (Global)
+export const logInteraction = async (interactionData) => {
+  try {
+    const response = await api.post('/logs/interaction', interactionData);
+    return response.data;
+  } catch (error) {
+    console.error('Error logging interaction:', error);
+    throw error;
   }
-);
+};
 
-// Response interceptor for error handling
-api.interceptors.response.use(
-  (response) => {
-    return response;
-  },
-  (error) => {
-    console.error('API Error:', error.response?.data || error.message);
-    return Promise.reject(error);
+export const logInteractionBatch = async (interactions) => {
+  try {
+    const response = await api.post('/logs/batch', { interactions });
+    return response.data;
+  } catch (error) {
+    console.error('Error logging interaction batch:', error);
+    throw error;
   }
-);
-
-// User API functions
-export const createUser = async (userData) => {
-  const response = await api.post('/game/users', userData);
-  return response.data;
 };
 
-// Game results API functions
-export const saveGameResults = async (userId, gameData) => {
-  const response = await api.post('/game/results', {
-    userId,
-    gameData
-  });
-  return response.data;
+// Motor Skills Interaction Logging
+export const logMotorSkillsInteraction = async (interactionData) => {
+  try {
+    const response = await api.post('/motor-skills/interaction', interactionData);
+    return response.data;
+  } catch (error) {
+    console.error('Error logging motor skills interaction:', error);
+    throw error;
+  }
 };
 
-export const getUserResults = async (userId) => {
-  const response = await api.get(`/game/users/${userId}/results`);
-  return response.data;
+export const logMotorSkillsBatch = async (interactions) => {
+  try {
+    const response = await api.post('/motor-skills/batch', { interactions });
+    return response.data;
+  } catch (error) {
+    console.error('Error logging motor skills batch:', error);
+    throw error;
+  }
 };
 
-export const getGameResult = async (resultId) => {
-  const response = await api.get(`/game/results/${resultId}`);
-  return response.data;
+// Session Management
+export const createSession = async (sessionData) => {
+  try {
+    const response = await api.post('/results/session', sessionData);
+    return response.data;
+  } catch (error) {
+    console.error('Error creating session:', error);
+    throw error;
+  }
 };
 
-// Health check
-export const checkHealth = async () => {
-  const response = await api.get('/health');
-  return response.data;
+// Vision Results
+export const saveVisionResults = async (resultsData) => {
+  try {
+    const response = await api.post('/results/vision', resultsData);
+    return response.data;
+  } catch (error) {
+    console.error('Error saving vision results:', error);
+    throw error;
+  }
+};
+
+// Literacy Results
+export const saveLiteracyResults = async (resultsData) => {
+  try {
+    const response = await api.post('/results/literacy', resultsData);
+    return response.data;
+  } catch (error) {
+    console.error('Error saving literacy results:', error);
+    throw error;
+  }
+};
+
+// Get Session Results
+export const getSessionResults = async (sessionId) => {
+  try {
+    const response = await api.get(`/results/session/${sessionId}`);
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching session results:', error);
+    throw error;
+  }
+};
+
+// Update Session Module Completion
+export const updateModuleCompletion = async (sessionId, moduleName) => {
+  try {
+    const response = await api.post('/results/module-complete', {
+      sessionId,
+      moduleName,
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Error updating module completion:', error);
+    throw error;
+  }
 };
 
 export default api;
+

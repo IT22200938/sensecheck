@@ -1,0 +1,28 @@
+import express from 'express';
+import { 
+  saveVisionResults, 
+  saveLiteracyResults,
+  getSessionResults,
+  createSession,
+  updateModuleCompletion
+} from '../controllers/resultsController.js';
+
+const router = express.Router();
+
+// POST /api/results/session - Create or update session
+router.post('/session', createSession);
+
+// POST /api/results/module-complete - Update module completion
+router.post('/module-complete', updateModuleCompletion);
+
+// POST /api/results/vision - Save vision test results
+router.post('/vision', saveVisionResults);
+
+// POST /api/results/literacy - Save literacy test results
+router.post('/literacy', saveLiteracyResults);
+
+// GET /api/results/session/:sessionId - Get all results for a session
+router.get('/session/:sessionId', getSessionResults);
+
+export default router;
+

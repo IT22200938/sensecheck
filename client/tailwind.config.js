@@ -7,48 +7,47 @@ export default {
   theme: {
     extend: {
       colors: {
-        'cyber-blue': '#00f5ff',
-        'cyber-purple': '#8b5cf6',
-        'cyber-green': '#00ff88',
-        'cyber-red': '#ff3366',
-        'cyber-yellow': '#ffff00',
-        'dark-bg': '#0a0a0a',
-        'dark-panel': '#1a1a1a',
-        'dark-border': '#333333',
+        'cyber-blue': {
+          50: '#e6f1ff',
+          100: '#b3d9ff',
+          200: '#80c0ff',
+          300: '#4da8ff',
+          400: '#1a90ff',
+          500: '#0077e6',
+          600: '#005cb3',
+          700: '#004280',
+          800: '#00294d',
+          900: '#000f1a',
+        },
+        'cyber-purple': {
+          50: '#f3e5ff',
+          100: '#d9b3ff',
+          200: '#bf80ff',
+          300: '#a54dff',
+          400: '#8b1aff',
+          500: '#7200e6',
+          600: '#5800b3',
+          700: '#3e0080',
+          800: '#24004d',
+          900: '#0a001a',
+        },
       },
-      fontFamily: {
-        'cyber': ['Orbitron', 'monospace'],
-        'mono': ['Fira Code', 'monospace'],
+      backgroundImage: {
+        'gradient-radial': 'radial-gradient(var(--tw-gradient-stops))',
+        'gradient-cyber': 'linear-gradient(135deg, #0077e6 0%, #7200e6 100%)',
       },
       animation: {
-        'pulse-glow': 'pulse-glow 2s ease-in-out infinite alternate',
-        'float': 'float 3s ease-in-out infinite',
-        'glitch': 'glitch 0.3s ease-in-out',
+        'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+        'glow': 'glow 2s ease-in-out infinite alternate',
       },
       keyframes: {
-        'pulse-glow': {
-          '0%': { 
-            boxShadow: '0 0 5px currentColor, 0 0 10px currentColor, 0 0 15px currentColor',
-            transform: 'scale(1)'
-          },
-          '100%': { 
-            boxShadow: '0 0 10px currentColor, 0 0 20px currentColor, 0 0 30px currentColor',
-            transform: 'scale(1.05)'
-          }
+        glow: {
+          '0%': { boxShadow: '0 0 5px #0077e6, 0 0 10px #0077e6' },
+          '100%': { boxShadow: '0 0 10px #7200e6, 0 0 20px #7200e6' },
         },
-        'float': {
-          '0%, 100%': { transform: 'translateY(0px)' },
-          '50%': { transform: 'translateY(-10px)' }
-        },
-        'glitch': {
-          '0%, 100%': { transform: 'translate(0)' },
-          '20%': { transform: 'translate(-2px, 2px)' },
-          '40%': { transform: 'translate(-2px, -2px)' },
-          '60%': { transform: 'translate(2px, 2px)' },
-          '80%': { transform: 'translate(2px, -2px)' }
-        }
-      }
+      },
     },
   },
   plugins: [],
 }
+

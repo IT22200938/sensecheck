@@ -1,38 +1,98 @@
-# SenseCheck - Mission Control Assessment Game
+# Sensecheck Facility
 
-A futuristic mission control game that assesses visual perception, motor coordination, and computer literacy through immersive gameplay scenarios.
+An immersive web-based digital research lab for sensory and cognitive assessment.
 
 ## 🎮 Game Overview
 
-Players take on the role of a mission control operator and must successfully complete three assessment protocols:
+Sensecheck Facility features three simulation chambers for research data collection:
 
-1. **Signal Recognition** - Tests color blindness and visual acuity through color-coded signals
-2. **System Stability** - Tests motor coordination through a bubble-popping reactor stabilization game  
-3. **System Access** - Tests computer literacy through UI element identification
+1. **Perception Lab** - Visual impairment detection
+   - Color blindness test (Ishihara-style plates)
+   - Visual acuity assessment
+   
+2. **Reaction Lab** - Motor skills assessment
+   - Interactive bubble-pop game with comprehensive interaction tracking
+   
+3. **Knowledge Console** - Computer literacy evaluation
+   - Multiple-choice quiz on digital literacy
 
-## 🚀 Features
+### User Information Collection
 
-- **Immersive Futuristic Theme** - Cyberpunk-inspired design with glowing effects and animations
-- **Real-time Assessment** - Live scoring and feedback during gameplay
-- **Comprehensive Analytics** - Detailed impairment calculations and recommendations
-- **Responsive Design** - Works on desktop and tablet devices
-- **Data Persistence** - MongoDB storage for user profiles and results
-- **Professional Results** - Printable certification with detailed breakdowns
+Before starting the assessment, participants provide:
+- **Age** (required)
+- **Gender** (required)
 
-## 🛠 Tech Stack
+All data is collected anonymously for research purposes only.
+
+## 🛠️ Tech Stack
 
 ### Frontend
-- **React 18** with Vite for fast development
-- **TailwindCSS** for modern styling
-- **Konva.js** for canvas-based animations and games
-- **React Router** for navigation
-- **Axios** for API communication
+- React 18 (Vite)
+- Konva.js for canvas interactions
+- TailwindCSS for styling
+- Zustand for state management
+- React Router for navigation
 
 ### Backend
-- **Node.js** with Express server
-- **MongoDB** with Mongoose ODM
-- **CORS** enabled for cross-origin requests
-- **RESTful API** design
+- Node.js + Express
+- MongoDB + Mongoose
+- Winston for centralized logging
+- Daily rotating file system
+
+## 📦 Installation
+
+### Prerequisites
+- Node.js >= 18.x
+- MongoDB (local or Atlas)
+- npm or yarn
+
+### Setup
+
+1. Clone the repository:
+```bash
+git clone <repository-url>
+cd sensecheck
+```
+
+2. Install all dependencies:
+```bash
+npm run install-all
+```
+
+3. Configure environment variables:
+
+Create `server/.env`:
+```env
+PORT=5000
+MONGODB_URI=mongodb://localhost:27017/sensecheck
+NODE_ENV=development
+```
+
+4. Add Ishihara Plate Images (Required for Color Blindness Test):
+
+Place the following images in `client/src/resources/`:
+- `ishihara_1.jpg`
+- `ishihara_3.jpg`
+- `ishihara_11.jpg`
+- `ishihara_19.jpg`
+
+See `client/src/resources/.gitkeep` for details on obtaining these images.
+
+**Note:** Without these images, the app will display placeholder circles instead.
+
+5. Start MongoDB (if running locally):
+```bash
+mongod
+```
+
+6. Run the application:
+```bash
+npm run dev
+```
+
+The app will be available at:
+- Frontend: http://localhost:5173
+- Backend API: http://localhost:5000
 
 ## 📁 Project Structure
 
@@ -40,251 +100,77 @@ Players take on the role of a mission control operator and must successfully com
 sensecheck/
 ├── client/                 # React frontend
 │   ├── src/
-│   │   ├── components/     # Game components
-│   │   │   ├── SignalRecognition.jsx
-│   │   │   ├── BubbleGame.jsx
-│   │   │   └── LiteracyQuiz.jsx
-│   │   ├── pages/          # Main pages
-│   │   │   ├── IntroPage.jsx
-│   │   │   ├── GamePage.jsx
-│   │   │   └── ResultsPage.jsx
-│   │   ├── hooks/          # Custom React hooks
-│   │   │   └── useGameState.js
-│   │   ├── utils/          # Utilities and API
-│   │   │   ├── api.js
-│   │   │   └── gameData.js
-│   │   └── App.jsx
-│   ├── public/
-│   └── package.json
-├── server/                 # Node.js backend
-│   ├── models/             # MongoDB models
-│   │   ├── User.js
-│   │   └── GameResult.js
-│   ├── routes/             # API routes
-│   │   └── gameRoutes.js
-│   ├── controllers/        # Route controllers
-│   │   └── gameController.js
-│   ├── utils/              # Server utilities
-│   │   └── scoringUtils.js
-│   ├── index.js
-│   └── package.json
-└── package.json           # Root package for scripts
+│   │   ├── components/    # Reusable UI components
+│   │   ├── modules/       # Game modules
+│   │   │   ├── Visual/
+│   │   │   ├── Motor/
+│   │   │   └── Literacy/
+│   │   ├── state/         # Zustand store
+│   │   ├── utils/         # Helper functions
+│   │   ├── hooks/         # Custom React hooks
+│   │   └── resources/     # Images and assets
+│   └── public/
+├── server/                # Node.js backend
+│   ├── routes/           # API routes
+│   ├── controllers/      # Route controllers
+│   ├── models/           # Mongoose models
+│   ├── services/         # Business logic & logging
+│   ├── middleware/       # Express middleware
+│   └── utils/            # Helper utilities
+└── docs/                 # Documentation
+
 ```
-
-## 🔧 Installation & Setup
-
-### Prerequisites
-- Node.js (v18 or higher)
-- MongoDB (local installation or cloud cluster)
-- Git
-
-### 1. Clone the Repository
-```bash
-git clone <repository-url>
-cd sensecheck
-```
-
-### 2. Install Dependencies
-```bash
-# Install root dependencies
-npm install
-
-# Install all project dependencies
-npm run install-all
-```
-
-### 3. Environment Configuration
-
-Create a `.env` file in the server directory:
-```env
-MONGODB_URI=mongodb://localhost:27017/sensecheck
-PORT=5000
-NODE_ENV=development
-```
-
-For MongoDB Atlas (cloud):
-```env
-MONGODB_URI=mongodb+srv://username:password@cluster.mongodb.net/sensecheck
-PORT=5000
-NODE_ENV=production
-```
-
-### 4. Start the Development Servers
-```bash
-# Start both frontend and backend
-npm run dev
-
-# Or start individually:
-npm run server  # Backend only (port 5000)
-npm run client  # Frontend only (port 3000)
-```
-
-### 5. Access the Application
-- Frontend: http://localhost:3000
-- Backend API: http://localhost:5000/api
-- Health Check: http://localhost:5000/api/health
-
-## 🎯 Game Mechanics
-
-### Signal Recognition Protocol
-- **Color Blindness Test**: Identify numbers within color-coded circles
-- **Visual Acuity Test**: Recognize progressively smaller numbers
-- **Scoring**: Based on accuracy and reaction time
-- **Output**: Color vision percentage and Snellen ratio (e.g., 20/20)
-
-### System Stability Protocol  
-- **Bubble Game**: Pop colored bubbles before they reach the top
-- **Dynamic Difficulty**: Speed and spawn rate increase over rounds
-- **Scoring**: Accuracy percentage and reaction time trends
-- **Output**: Motor coordination assessment
-
-### System Access Protocol
-- **UI Literacy Quiz**: Identify common interface elements
-- **Timed Responses**: Speed affects final score
-- **Scoring**: Correct answers with time bonus/penalty
-- **Output**: Computer literacy percentage
-
-## 📊 Assessment Calculations
-
-### Color Vision Score
-```javascript
-score = (correct_answers / total_patterns) * 100
-```
-
-### Visual Acuity Score  
-```javascript
-// Convert smallest recognized size to Snellen ratio
-mar = smallest_size / 10
-snellen_denominator = 20 * mar
-result = "20/" + snellen_denominator
-```
-
-### Motor Skills Score
-```javascript
-accuracy = (popped_bubbles / total_bubbles) * 100
-reaction_trend = [reaction_times_by_round]
-```
-
-### Computer Literacy Score
-```javascript
-base_score = (correct_answers / total_questions) * 100
-speed_weight = average_time < 5s ? 1.1 : average_time > 10s ? 0.9 : 1.0
-final_score = base_score * speed_weight
-```
-
-### Overall Assessment
-- **Excellent** (90%+): All systems optimal
-- **Good** (75-89%): Minor improvements needed  
-- **Fair** (60-74%): Some attention required
-- **Needs Attention** (40-59%): Training recommended
-- **Requires Training** (<40%): Additional training required
 
 ## 🔌 API Endpoints
 
-### Users
-- `POST /api/game/users` - Create new user
-- `GET /api/game/users/:userId/results` - Get user's results
+### Interaction Logs
+- `POST /api/logs/interaction` - Store interaction data
 
-### Game Results  
-- `POST /api/game/results` - Save game results
-- `GET /api/game/results/:resultId` - Get specific result
+### Results
+- `POST /api/results/vision` - Store vision test results
+- `POST /api/results/literacy` - Store literacy test results
+- `GET /api/results/session/:sessionId` - Get all results for a session
 
-### Health Check
-- `GET /api/health` - Server status check
+## 🎨 Design Theme
 
-## 🎨 Design Features
+The interface uses a futuristic sci-fi aesthetic:
+- Color palette: Blues, purples, soft gradients
+- Typography: Clean, modern sans-serif
+- Animations: Minimal, professional
+- Tone: Calm, scientific, friendly
 
-### Cyberpunk Theme
-- Neon color scheme (cyan, purple, green, red, yellow)
-- Orbitron and Fira Code fonts
-- Glowing effects and animations
-- Futuristic UI panels with backdrop blur
+## 📊 Data Collection
 
-### Responsive Layout
-- Mobile-first design approach
-- Tablet and desktop optimized
-- Touch-friendly interactions
-- Scalable canvas elements
+The system collects data for research purposes:
 
-### Accessibility
-- High contrast color combinations
-- Large touch targets
-- Clear visual feedback
-- Keyboard navigation support
+### User Demographics
+- Age (1-120)
+- Gender (Male, Female, Other, Prefer not to say)
 
-## 🧪 Testing
+### Interaction Data
+- Mouse/touch coordinates and timestamps
+- Response times and accuracy
+- Movement patterns and trajectories
+- Focus shifts and hover events
+- Device-specific metrics (pressure, touch area)
 
-### Manual Testing Checklist
-- [ ] User registration flow
-- [ ] Signal recognition accuracy
-- [ ] Bubble game performance
-- [ ] Quiz question progression  
-- [ ] Results calculation
-- [ ] Data persistence
-- [ ] Error handling
+**Note:** Players do not see their results. All data is stored in the backend for researcher access only.
 
-### Browser Compatibility
-- Chrome 90+
-- Firefox 88+
-- Safari 14+
-- Edge 90+
+## 🔒 Privacy & Data Usage
 
-## 🚀 Deployment
-
-### Frontend Deployment (Vercel/Netlify)
-```bash
-cd client
-npm run build
-# Deploy dist/ folder
-```
-
-### Backend Deployment (Heroku/Railway)
-```bash
-cd server
-# Set environment variables
-# Deploy with MongoDB Atlas connection
-```
-
-### Environment Variables for Production
-```env
-MONGODB_URI=<your_mongodb_atlas_connection_string>
-PORT=5000
-NODE_ENV=production
-```
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit changes (`git commit -m 'Add amazing feature'`)
-4. Push to branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+- All data is anonymized using session IDs
+- No personal identifying information (names, emails, etc.) is collected
+- Demographic data (age, gender) is collected for research analysis only
+- Data stored securely in MongoDB
+- Used exclusively for research purposes
+- Players do not see individual results
+- Compliant with research ethics standards
 
 ## 📝 License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+ISC
 
-## 🔮 Future Enhancements
+## 🤝 Contributing
 
-- [ ] Multiplayer assessment sessions
-- [ ] Advanced analytics dashboard
-- [ ] Custom assessment configurations
-- [ ] Mobile app version
-- [ ] VR/AR integration
-- [ ] Multi-language support
-- [ ] Advanced reporting features
-- [ ] Integration with learning management systems
+This is a research assessment tool. Please maintain code quality and follow the established patterns.
 
-## 🐛 Known Issues
-
-- Canvas performance may vary on older devices
-- MongoDB connection requires stable internet
-- Print functionality needs browser print dialog
-
-## 📞 Support
-
-For support, email support@sensecheck.com or open an issue on GitHub.
-
----
-
-**Made with ❤️ for mission-critical assessments**

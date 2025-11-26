@@ -3,77 +3,123 @@
 @tailwind utilities;
 
 @layer base {
+  html {
+    /* Prevent zoom */
+    touch-action: none;
+    -ms-touch-action: none;
+  }
+
   * {
-    box-sizing: border-box;
+    /* Prevent zoom on double-tap */
+    touch-action: manipulation;
+    -ms-touch-action: manipulation;
+    /* Prevent text selection during interaction */
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+    /* Prevent callout on long press */
+    -webkit-touch-callout: none;
   }
-  
+
+  /* Allow text selection only in inputs and text areas */
+  input,
+  textarea {
+    -webkit-user-select: text;
+    -moz-user-select: text;
+    -ms-user-select: text;
+    user-select: text;
+  }
+
   body {
-    margin: 0;
-    font-family: 'Orbitron', monospace;
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-    background: linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 100%);
-    min-height: 100vh;
+    @apply bg-gradient-to-br from-cyber-blue-900 via-gray-900 to-cyber-purple-900;
+    @apply text-white font-sans antialiased;
+    @apply min-h-screen;
+    /* Prevent pinch zoom */
+    touch-action: pan-x pan-y;
+    -ms-touch-action: pan-x pan-y;
+    /* Prevent overscroll bounce */
+    overscroll-behavior: none;
+    /* Prevent momentum scrolling */
+    -webkit-overflow-scrolling: touch;
   }
-  
+
   #root {
-    min-height: 100vh;
+    /* Ensure root also prevents zoom */
+    touch-action: pan-x pan-y;
+    -ms-touch-action: pan-x pan-y;
   }
 }
 
 @layer components {
-  .cyber-button {
-    @apply px-6 py-3 bg-transparent border-2 border-cyber-blue text-cyber-blue font-cyber font-semibold uppercase tracking-wider transition-all duration-300 hover:bg-cyber-blue hover:text-dark-bg hover:shadow-lg hover:shadow-cyber-blue/50 active:scale-95;
+  .animate-fade-in {
+    animation: fadeIn 0.3s ease-in-out;
   }
-  
-  .cyber-panel {
-    @apply bg-dark-panel border border-dark-border rounded-lg backdrop-blur-sm bg-opacity-80;
+
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: scale(0.95);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
   }
-  
-  .cyber-input {
-    @apply bg-dark-panel border border-dark-border rounded px-4 py-2 text-white placeholder-gray-400 focus:border-cyber-blue focus:outline-none focus:ring-2 focus:ring-cyber-blue/20;
+
+  .btn-primary {
+    @apply px-6 py-3 bg-gradient-to-r from-cyber-blue-500 to-cyber-purple-500;
+    @apply rounded-lg font-semibold text-white;
+    @apply hover:from-cyber-blue-600 hover:to-cyber-purple-600;
+    @apply transition-all duration-300;
+    @apply shadow-lg hover:shadow-xl;
+    @apply disabled:opacity-50 disabled:cursor-not-allowed;
   }
-  
-  .signal-circle {
-    @apply rounded-full flex items-center justify-center font-bold text-2xl transition-all duration-200 cursor-pointer hover:scale-110;
+
+  .btn-secondary {
+    @apply px-6 py-3 bg-gray-700 rounded-lg font-semibold text-white;
+    @apply hover:bg-gray-600 transition-all duration-300;
+    @apply shadow-lg hover:shadow-xl;
   }
-  
-  .bubble {
-    @apply rounded-full absolute cursor-pointer transition-all duration-100 hover:scale-110;
+
+  .card {
+    @apply bg-gray-800/50 backdrop-blur-md rounded-xl p-6;
+    @apply border border-cyber-blue-500/30;
+    @apply shadow-xl;
   }
-  
-  .quiz-option {
-    @apply p-4 border border-dark-border rounded-lg cursor-pointer transition-all duration-200 hover:border-cyber-blue hover:bg-cyber-blue/10;
+
+  .input-field {
+    @apply w-full px-4 py-3 bg-gray-700/50 border border-gray-600;
+    @apply rounded-lg text-white placeholder-gray-400;
+    @apply focus:outline-none focus:ring-2 focus:ring-cyber-blue-500;
+    @apply transition-all duration-300;
   }
-  
-  .quiz-option.selected {
-    @apply border-cyber-blue bg-cyber-blue/20;
+
+  .cyber-glow {
+    @apply shadow-[0_0_15px_rgba(0,119,230,0.5)];
   }
-  
-  .quiz-option.correct {
-    @apply border-cyber-green bg-cyber-green/20;
-  }
-  
-  .quiz-option.incorrect {
-    @apply border-cyber-red bg-cyber-red/20;
+
+  .loading-spinner {
+    @apply inline-block w-8 h-8 border-4 border-gray-600;
+    @apply border-t-cyber-blue-500 rounded-full animate-spin;
   }
 }
 
-@layer utilities {
-  .text-shadow-glow {
-    text-shadow: 0 0 10px currentColor;
-  }
-  
-  .border-glow {
-    box-shadow: 0 0 10px currentColor;
-  }
-  
-  .animate-scan-line {
-    animation: scan-line 2s linear infinite;
-  }
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 10px;
 }
 
-@keyframes scan-line {
-  0% { transform: translateY(-100%); }
-  100% { transform: translateY(100vh); }
+::-webkit-scrollbar-track {
+  background: #1a1a2e;
 }
+
+::-webkit-scrollbar-thumb {
+  background: #0077e6;
+  border-radius: 5px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #005cb3;
+}
+
