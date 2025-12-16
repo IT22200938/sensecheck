@@ -244,16 +244,17 @@ const MotorSkillsGame = () => {
   const completeTest = async () => {
     completeMotorSkillsTest();
     
+    // Flush remaining motor skills interactions
+    if (motorTrackerRef.current) {
+      await motorTrackerRef.current.complete();
+      const totalInteractions = motorTrackerRef.current.getAllInteractions().length;
+      console.log(`🎯 Motor skills tracking complete: ${totalInteractions} enhanced events tracked`);
+    }
+    
     // Mark module as completed
     await completeModule('reaction');
     
     setIsComplete(true);
-    
-    // Get total interaction count from tracker
-    if (motorTrackerRef.current) {
-      const totalInteractions = motorTrackerRef.current.getAllInteractions().length;
-      console.log(`🎯 Motor skills tracking complete: ${totalInteractions} enhanced events tracked`);
-    }
   };
 
   // Cleanup on unmount

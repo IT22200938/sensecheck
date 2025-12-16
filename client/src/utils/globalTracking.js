@@ -1,9 +1,10 @@
 /**
  * Comprehensive Global Interaction Tracking System
  * Tracks all user interactions across the entire application
+ * Uses MongoDB bucket pattern for efficient storage
  */
 
-import { logInteraction } from './api';
+import { logInteractionToBucket, logInteractionBatchToBucket } from './api';
 
 class GlobalTracker {
   constructor() {
@@ -13,6 +14,12 @@ class GlobalTracker {
     this.touchStartData = null;
     this.pointerStartData = {};
     this.isInitialized = false;
+    
+    // Batching for performance
+    this.interactionBuffer = [];
+    this.BATCH_SIZE = 10;
+    this.BATCH_TIMEOUT = 2000; // 2 seconds
+    this.batchTimer = null;
   }
 
   initialize(sessionId) {
@@ -21,26 +28,94 @@ class GlobalTracker {
     this.sessionId = sessionId;
     this.setupEventListeners();
     this.trackPageView();
+    this.setupBatchFlushing();
     this.isInitialized = true;
     
-    console.log('✅ Global tracking initialized');
+    console.log('✅ Global tracking initialized with bucket pattern');
+  }
+  
+  // Setup automatic batch flushing
+  setupBatchFlushing() {
+    // Flush on page unload
+    window.addEventListener('beforeunload', () => {
+      this.flushBatch(true); // Synchronous flush
+    });
+    
+    // Periodic flush
+    setInterval(() => {
+      this.flushBatch();
+    }, 10000); // Every 10 seconds
   }
 
   // Helper: Create interaction data structure
   createInteractionData(eventType, data = {}) {
     return {
-      sessionId: this.sessionId,
       module: 'global',
       eventType,
-      timestamp: Date.now(),
+      timestamp: new Date(),
       ...data,
     };
   }
 
-  // Helper: Log to backend
+  // Helper: Add interaction to buffer
+  addToBuffer(data) {
+    this.interactionBuffer.push(data);
+    
+    // Auto-flush if buffer is full
+    if (this.interactionBuffer.length >= this.BATCH_SIZE) {
+      this.flushBatch();
+    } else {
+      // Reset batch timer
+      if (this.batchTimer) {
+        clearTimeout(this.batchTimer);
+      }
+      this.batchTimer = setTimeout(() => {
+        this.flushBatch();
+      }, this.BATCH_TIMEOUT);
+    }
+  }
+
+  // Helper: Flush batch to backend
+  async flushBatch(synchronous = false) {
+    if (this.interactionBuffer.length === 0) return;
+    
+    const batch = [...this.interactionBuffer];
+    this.interactionBuffer = [];
+    
+    if (this.batchTimer) {
+      clearTimeout(this.batchTimer);
+      this.batchTimer = null;
+    }
+    
+    try {
+      if (synchronous) {
+        // Use sendBeacon for synchronous unload
+        const blob = new Blob([JSON.stringify({
+          sessionId: this.sessionId,
+          interactionType: 'global',
+          interactions: batch,
+        })], { type: 'application/json' });
+        
+        navigator.sendBeacon(
+          `${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/interactions/batch`,
+          blob
+        );
+      } else {
+        // Async batch
+        await logInteractionBatchToBucket(this.sessionId, 'global', batch);
+        console.log(`📦 Flushed ${batch.length} global interactions to bucket`);
+      }
+    } catch (error) {
+      console.error('Error flushing interaction batch:', error);
+      // Re-add to buffer on error
+      this.interactionBuffer.unshift(...batch);
+    }
+  }
+
+  // Helper: Log to backend (adds to buffer)
   async logToBackend(data) {
     try {
-      await logInteraction(data);
+      this.addToBuffer(data);
     } catch (error) {
       console.error('Tracking error:', error);
     }

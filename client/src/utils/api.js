@@ -9,7 +9,102 @@ const api = axios.create({
   },
 });
 
-// Interaction Logging (Global)
+// ==================== BUCKET-BASED INTERACTION LOGGING ====================
+// New unified API using MongoDB bucket pattern for better performance
+
+/**
+ * Log a single interaction to bucket (global or motor)
+ * @param {string} sessionId - Session ID
+ * @param {string} interactionType - 'global' or 'motor'
+ * @param {object} interactionData - The interaction data
+ */
+export const logInteractionToBucket = async (sessionId, interactionType, interactionData) => {
+  try {
+    const response = await api.post('/interactions/log', {
+      sessionId,
+      interactionType,
+      ...interactionData,
+    });
+    return response.data;
+  } catch (error) {
+    console.error(`Error logging ${interactionType} interaction to bucket:`, error);
+    throw error;
+  }
+};
+
+/**
+ * Log multiple interactions in batch to bucket (global or motor)
+ * @param {string} sessionId - Session ID
+ * @param {string} interactionType - 'global' or 'motor'
+ * @param {array} interactions - Array of interaction objects
+ */
+export const logInteractionBatchToBucket = async (sessionId, interactionType, interactions) => {
+  try {
+    const response = await api.post('/interactions/batch', {
+      sessionId,
+      interactionType,
+      interactions,
+    });
+    return response.data;
+  } catch (error) {
+    console.error(`Error logging ${interactionType} batch to bucket:`, error);
+    throw error;
+  }
+};
+
+/**
+ * Get all interactions for a session
+ * @param {string} sessionId - Session ID
+ * @param {string} type - Optional: 'global' or 'motor' to filter
+ */
+export const getSessionInteractions = async (sessionId, type = null) => {
+  try {
+    const url = type 
+      ? `/interactions/session/${sessionId}?type=${type}`
+      : `/interactions/session/${sessionId}`;
+    const response = await api.get(url);
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching session interactions:', error);
+    throw error;
+  }
+};
+
+/**
+ * Get interaction statistics for a session
+ * @param {string} sessionId - Session ID
+ */
+export const getSessionInteractionStats = async (sessionId) => {
+  try {
+    const response = await api.get(`/interactions/session/${sessionId}/stats`);
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching session interaction stats:', error);
+    throw error;
+  }
+};
+
+/**
+ * Get bucket information for a session
+ * @param {string} sessionId - Session ID
+ * @param {string} type - Optional: 'global' or 'motor' to filter
+ */
+export const getSessionBuckets = async (sessionId, type = null) => {
+  try {
+    const url = type 
+      ? `/interactions/session/${sessionId}/buckets?type=${type}`
+      : `/interactions/session/${sessionId}/buckets`;
+    const response = await api.get(url);
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching session buckets:', error);
+    throw error;
+  }
+};
+
+// ==================== LEGACY APIS (for backwards compatibility) ====================
+// These can be removed once all clients are updated to use bucket-based APIs
+
 export const logInteraction = async (interactionData) => {
   try {
     const response = await api.post('/logs/interaction', interactionData);
@@ -30,7 +125,6 @@ export const logInteractionBatch = async (interactions) => {
   }
 };
 
-// Motor Skills Interaction Logging
 export const logMotorSkillsInteraction = async (interactionData) => {
   try {
     const response = await api.post('/motor-skills/interaction', interactionData);

@@ -6,6 +6,100 @@ All requested interactions are now being tracked globally and specifically for t
 
 ---
 
+## 📦 MONGODB BUCKET PATTERN IMPLEMENTATION
+
+### Overview
+The system now uses **MongoDB Bucket Pattern** for efficient session-based interaction storage.
+
+### Benefits
+- **Reduced Database Operations:** Batch inserts instead of individual documents
+- **Better Query Performance:** Fewer documents to scan
+- **Lower Storage Overhead:** Shared metadata across interactions
+- **Automatic Bucketing:** By session and interaction type
+- **Referential Integrity:** Enforced relationship between Session and InteractionBucket
+
+### Schema Relationships
+
+**Session ↔ InteractionBucket (One-to-Many)**
+
+```javascript
+Session (1) ──────< InteractionBucket (Many)
+  sessionId ←──── sessionId (indexed, validated)
+```
+
+**Key Features:**
+- `InteractionBucket.sessionId` references `Session.sessionId`
+- Pre-save validation ensures session exists before creating buckets
+- Virtual fields enable easy population of related data
+- Cascade delete: Removing a session automatically deletes its buckets
+- Session methods for easy access to interaction statistics
+
+**Session Model Methods:**
+```javascript
+session.getInteractionStats()        // Get all interaction statistics
+session.getAllInteractions('global') // Get all global interactions
+session.getAllInteractions('motor')  // Get all motor interactions
+session.deleteInteractionBuckets()   // Delete all associated buckets
+```
+
+**InteractionBucket Virtual Fields:**
+```javascript
+bucket.sessionDetails  // Populated Session document
+```
+
+**Session Virtual Fields:**
+```javascript
+session.interactionBuckets  // All InteractionBucket documents
+```
+
+### Architecture
+
+**Model:** `server/models/InteractionBucket.js`
+- Each bucket stores up to 1,000 interactions
+- Buckets are automatically created when full
+- Separate buckets for 'global' and 'motor' interactions
+- Indexed by sessionId, interactionType, and bucketNumber
+
+**Controller:** `server/controllers/interactionBucketController.js`
+- Handles single and batch interaction logging
+- Provides session statistics and bucket information
+- Supports flexible interaction data structures
+
+**API Routes:** `/api/interactions/*`
+- `POST /api/interactions/log` - Log single interaction
+- `POST /api/interactions/batch` - Log batch of interactions
+- `GET /api/interactions/session/:sessionId` - Get all interactions
+- `GET /api/interactions/session/:sessionId/stats` - Get statistics
+- `GET /api/interactions/session/:sessionId/buckets` - Get bucket info
+
+### Client Implementation
+
+**Global Tracking:** `client/src/utils/globalTracking.js`
+- Automatic batching (10 interactions or 2 seconds)
+- Uses `sendBeacon` for synchronous unload
+- Periodic flush every 10 seconds
+
+**Motor Skills Tracking:** `client/src/utils/motorSkillsTracking.js`
+- Separate batch buffer for motor-specific interactions
+- Automatic flush on test completion
+- Same batching strategy as global tracking
+
+**API Client:** `client/src/utils/api.js`
+- `logInteractionToBucket(sessionId, type, data)` - Single interaction
+- `logInteractionBatchToBucket(sessionId, type, interactions)` - Batch
+- `getSessionInteractionStats(sessionId)` - Statistics
+- Legacy APIs maintained for backwards compatibility
+
+### Verification Script
+
+Run `node server/check-buckets.js` to verify bucket implementation:
+- Shows bucket statistics per session
+- Displays sample interactions
+- Calculates storage efficiency
+- Shows document reduction percentage
+
+---
+
 ## 🖱️ BASIC MOUSE INTERACTIONS (5/5 ✅)
 
 ### 1. ✅ click

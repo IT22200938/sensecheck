@@ -123,13 +123,65 @@ sensecheck/
 
 ## 🔌 API Endpoints
 
-### Interaction Logs
-- `POST /api/logs/interaction` - Store interaction data
+### Interaction Tracking (Bucket Pattern) 🆕
+- `POST /api/interactions/log` - Log single interaction to bucket
+- `POST /api/interactions/batch` - Log batch interactions to bucket
+- `GET /api/interactions/session/:sessionId` - Get all interactions
+- `GET /api/interactions/session/:sessionId/stats` - Get interaction statistics
+- `GET /api/interactions/session/:sessionId/buckets` - Get bucket metadata
+
+### Legacy Interaction Logs
+- `POST /api/logs/interaction` - Store interaction data (deprecated)
+- `POST /api/motor-skills/interaction` - Store motor skills data (deprecated)
 
 ### Results
 - `POST /api/results/vision` - Store vision test results
 - `POST /api/results/literacy` - Store literacy test results
 - `GET /api/results/session/:sessionId` - Get all results for a session
+- `POST /api/results/module-complete` - Mark module as completed
+
+## 📦 MongoDB Bucket Pattern
+
+The application uses MongoDB bucket pattern for efficient interaction storage with proper schema relationships:
+
+### Schema Relationship
+```
+Session (1) ──────< InteractionBucket (Many)
+  sessionId ←──── sessionId (validated)
+```
+
+### Benefits
+- **Performance:** Reduced database operations through batch inserts
+- **Scalability:** Lower storage overhead with shared metadata
+- **Query Efficiency:** Fewer documents to scan for session data
+- **Auto-bucketing:** Automatic bucket creation when reaching 1,000 interactions
+- **Data Integrity:** Enforced relationship between sessions and interaction buckets
+
+### Features
+- **Validation:** InteractionBuckets can only be created for existing sessions
+- **Virtual Fields:** Easy population of related data
+- **Cascade Delete:** Removing a session automatically deletes its interaction buckets
+- **Session Methods:** Direct access to interaction stats from session documents
+
+### Architecture
+- Each session gets separate buckets for 'global' and 'motor' interactions
+- Buckets automatically close when full (1,000 interactions)
+- Client-side batching (10 interactions or 2 seconds)
+- Automatic periodic flush (every 10 seconds)
+
+### Verification
+Check bucket statistics and relationships:
+```bash
+cd server
+npm run check-buckets
+```
+
+This will display:
+- Session details (user info, device, completed modules)
+- Total sessions with bucket data
+- Bucket counts and fill status
+- Sample interactions from each bucket
+- Storage efficiency metrics
 
 ## 🎨 Design Theme
 

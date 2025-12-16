@@ -1,9 +1,10 @@
 /**
  * Enhanced Motor Skills Tracking
  * Comprehensive tracking for the bubble-pop game
+ * Uses MongoDB bucket pattern for efficient storage
  */
 
-import { logMotorSkillsInteraction } from './api';
+import { logInteractionToBucket, logInteractionBatchToBucket } from './api';
 
 class MotorSkillsTracker {
   constructor(sessionId) {
@@ -15,6 +16,12 @@ class MotorSkillsTracker {
     this.velocityHistory = [];
     this.trajectoryPoints = [];
     this.round = 1;
+    
+    // Batching for performance
+    this.interactionBuffer = [];
+    this.BATCH_SIZE = 10;
+    this.BATCH_TIMEOUT = 2000; // 2 seconds
+    this.batchTimer = null;
   }
 
   // Track bubble spawn
@@ -264,22 +271,65 @@ class MotorSkillsTracker {
     };
   }
 
+  // Helper: Add interaction to buffer
+  addToBuffer(data) {
+    this.interactionBuffer.push(data);
+    
+    // Auto-flush if buffer is full
+    if (this.interactionBuffer.length >= this.BATCH_SIZE) {
+      this.flushBatch();
+    } else {
+      // Reset batch timer
+      if (this.batchTimer) {
+        clearTimeout(this.batchTimer);
+      }
+      this.batchTimer = setTimeout(() => {
+        this.flushBatch();
+      }, this.BATCH_TIMEOUT);
+    }
+  }
+
+  // Helper: Flush batch to backend
+  async flushBatch() {
+    if (this.interactionBuffer.length === 0) return;
+    
+    const batch = [...this.interactionBuffer];
+    this.interactionBuffer = [];
+    
+    if (this.batchTimer) {
+      clearTimeout(this.batchTimer);
+      this.batchTimer = null;
+    }
+    
+    try {
+      await logInteractionBatchToBucket(this.sessionId, 'motor', batch);
+      console.log(`📦 Flushed ${batch.length} motor skill interactions to bucket`);
+    } catch (error) {
+      console.error('Error flushing motor skills batch:', error);
+      // Re-add to buffer on error
+      this.interactionBuffer.unshift(...batch);
+    }
+  }
+
   // Helper: Log interaction
   logInteraction(eventType, data) {
     const interaction = {
-      sessionId: this.sessionId,
       round: this.round,
       eventType,
-      timestamp: Date.now(),
+      timestamp: new Date(),
       ...data,
     };
     
     this.interactions.push(interaction);
     
-    // Send to backend (dedicated motor skills endpoint)
-    logMotorSkillsInteraction(interaction).catch(error => {
-      console.error('Motor skills tracking error:', error);
-    });
+    // Add to batch buffer (uses bucket pattern)
+    this.addToBuffer(interaction);
+  }
+  
+  // Complete motor skills session (flush remaining interactions)
+  async complete() {
+    await this.flushBatch();
+    console.log(`✅ Motor skills tracking complete. Total interactions: ${this.interactions.length}`);
   }
 
   // Get all interactions

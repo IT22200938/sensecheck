@@ -10,6 +10,9 @@ import { errorHandler } from './middleware/errorHandler.js';
 import logRoutes from './routes/logs.js';
 import resultsRoutes from './routes/results.js';
 import motorSkillsRoutes from './routes/motorSkills.js';
+import interactionBucketRoutes from './routes/interactionBuckets.js';
+import motorRoutes from './routes/motor.js';
+import globalRoutes from './routes/global.js';
 
 dotenv.config();
 
@@ -23,9 +26,14 @@ app.use(express.urlencoded({ extended: true }));
 app.use(requestLogger);
 
 // Routes
-app.use('/api/logs', logRoutes);
+app.use('/api/logs', logRoutes); // Legacy - for backwards compatibility
 app.use('/api/results', resultsRoutes);
-app.use('/api/motor-skills', motorSkillsRoutes);
+app.use('/api/motor-skills', motorSkillsRoutes); // Legacy - for backwards compatibility
+app.use('/api/interactions', interactionBucketRoutes); // Unified bucket API (legacy)
+
+// ML-Ready APIs
+app.use('/api/motor', motorRoutes); // Motor skills: trace, attempts, summaries
+app.use('/api/global', globalRoutes); // Global interactions
 
 // Health check
 app.get('/api/health', (req, res) => {

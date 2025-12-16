@@ -63,7 +63,201 @@ Initialize or update a session with device information.
 
 ---
 
-## Interaction Logging
+## Interaction Logging (Bucket Pattern) 🆕
+
+### Overview
+The new bucket-based API provides efficient session-based interaction storage using MongoDB bucket pattern with enforced schema relationships.
+
+### Schema Relationship
+```
+Session ──────< InteractionBucket
+  sessionId ←──── sessionId (validated, indexed)
+```
+
+**Important:** 
+- A session must be created first before logging interactions
+- InteractionBuckets validate that the session exists
+- Returns 404 error if session doesn't exist
+- Deleting a session automatically deletes all its interaction buckets
+
+### Log Single Interaction to Bucket
+Record a single interaction (global or motor) to appropriate bucket.
+
+**POST** `/interactions/log`
+
+**Request Body:**
+```json
+{
+  "sessionId": "session_12345",
+  "interactionType": "global",
+  "eventType": "click",
+  "timestamp": "2024-11-24T10:30:00.000Z",
+  "target": {
+    "tag": "button",
+    "id": "start-button",
+    "class": "btn-primary",
+    "text": "Start"
+  },
+  "position": { "x": 450, "y": 320 }
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "bucketNumber": 1,
+    "count": 5
+  }
+}
+```
+
+### Log Batch Interactions to Bucket
+Record multiple interactions in a single request.
+
+**POST** `/interactions/batch`
+
+**Request Body:**
+```json
+{
+  "sessionId": "session_12345",
+  "interactionType": "motor",
+  "interactions": [
+    {
+      "eventType": "bubble_spawn",
+      "timestamp": "2024-11-24T10:30:00.000Z",
+      "bubbleId": "bubble_1",
+      "column": 2,
+      "round": 1
+    },
+    {
+      "eventType": "bubble_hit",
+      "timestamp": "2024-11-24T10:30:01.500Z",
+      "bubbleId": "bubble_1",
+      "reactionTime": 1500
+    }
+  ]
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "count": 2
+  }
+}
+```
+
+### Get Session Interactions
+Retrieve all interactions for a session, optionally filtered by type.
+
+**GET** `/interactions/session/:sessionId?type=global|motor`
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "sessionId": "session_12345",
+    "interactionType": "all",
+    "count": 150,
+    "interactions": [
+      {
+        "eventType": "click",
+        "timestamp": "2024-11-24T10:30:00.000Z",
+        ...
+      }
+    ]
+  }
+}
+```
+
+### Get Session Interaction Statistics
+Get comprehensive statistics about session interactions.
+
+**GET** `/interactions/session/:sessionId/stats`
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "sessionId": "session_12345",
+    "global": {
+      "bucketCount": 2,
+      "interactionCount": 150,
+      "buckets": [
+        {
+          "bucketNumber": 1,
+          "count": 100,
+          "isFull": true,
+          "timeRange": {
+            "first": "2024-11-24T10:30:00.000Z",
+            "last": "2024-11-24T10:35:00.000Z"
+          }
+        }
+      ]
+    },
+    "motor": {
+      "bucketCount": 1,
+      "interactionCount": 75,
+      "buckets": [...]
+    },
+    "total": 225
+  }
+}
+```
+
+### Get Session Buckets
+Get bucket metadata without interaction data (for performance).
+
+**GET** `/interactions/session/:sessionId/buckets?type=global|motor`
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "sessionId": "session_12345",
+    "interactionType": "all",
+    "bucketCount": 3,
+    "buckets": [
+      {
+        "bucketNumber": 1,
+        "count": 1000,
+        "isFull": true,
+        "firstInteractionAt": "2024-11-24T10:30:00.000Z",
+        "lastInteractionAt": "2024-11-24T10:35:00.000Z"
+      }
+    ]
+  }
+}
+```
+
+### Delete Session Interactions (Testing Only)
+Remove all interactions for a session.
+
+**DELETE** `/interactions/session/:sessionId`
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "deletedCount": 3
+  }
+}
+```
+
+---
+
+## Legacy Interaction Logging
+
+> **Note:** These endpoints are maintained for backwards compatibility.
+> New implementations should use the bucket-based API above.
 
 ### Log Single Interaction
 Record a single user interaction event.

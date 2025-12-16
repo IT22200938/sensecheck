@@ -6,7 +6,10 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "nodemon server.js"
+    "dev": "nodemon server.js",
+    "check-buckets": "node check-buckets.js",
+    "check-interactions": "node check-interactions.js",
+    "test-schema": "node test-schema-relationships.js"
   },
   "dependencies": {
     "express": "^4.18.2",
