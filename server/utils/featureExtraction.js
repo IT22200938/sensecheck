@@ -57,6 +57,10 @@ export function extractAttemptFeatures({
   
   if (seg.length < 4) {
     // Not enough samples for meaningful feature extraction
+    if (spawnTms > 0) {
+      // Only log warning for valid attempts (not stage clicks with spawnTms=0)
+      console.log(`⚠️ Attempt has ${seg.length} samples (need 4+) - spawn:${spawnTms}, click:${clickTms}, duration:${clickTms-spawnTms}ms`);
+    }
     return {
       timing: {
         reactionTimeMs: clickTms - spawnTms,

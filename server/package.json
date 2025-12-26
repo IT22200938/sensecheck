@@ -9,7 +9,8 @@
     "dev": "nodemon server.js",
     "check-buckets": "node check-buckets.js",
     "check-interactions": "node check-interactions.js",
-    "test-schema": "node test-schema-relationships.js"
+    "test-schema": "node test-schema-relationships.js",
+    "cleanup-db": "node cleanup-database.js"
   },
   "dependencies": {
     "express": "^4.18.2",

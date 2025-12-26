@@ -203,5 +203,99 @@ export const updateModuleCompletion = async (sessionId, moduleName) => {
   }
 };
 
+// ==================== ML-READY MOTOR SKILLS APIs ====================
+
+/**
+ * Log pointer trace samples (for ML training)
+ * @param {string} sessionId - Session ID
+ * @param {array} samples - Array of pointer samples [{round, tms, x, y, ...}]
+ */
+export const logPointerSamples = async (sessionId, samples) => {
+  try {
+    const response = await api.post('/motor/trace', {
+      sessionId,
+      samples,
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Error logging pointer samples:', error);
+    throw error;
+  }
+};
+
+/**
+ * Log motor attempts (for ML training)
+ * @param {string} sessionId - Session ID
+ * @param {array} attempts - Array of attempt objects with features
+ */
+export const logMotorAttempts = async (sessionId, attempts) => {
+  try {
+    const response = await api.post('/motor/attempts', {
+      sessionId,
+      attempts,
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Error logging motor attempts:', error);
+    throw error;
+  }
+};
+
+/**
+ * Compute round summary
+ * @param {string} sessionId - Session ID
+ * @param {string} participantId - Participant ID
+ * @param {number} round - Round number (1-3)
+ */
+export const computeRoundSummary = async (sessionId, participantId, round) => {
+  try {
+    const response = await api.post('/motor/summary/round', {
+      sessionId,
+      participantId,
+      round,
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Error computing round summary:', error);
+    throw error;
+  }
+};
+
+/**
+ * Compute session summary
+ * @param {string} sessionId - Session ID
+ * @param {string} participantId - Participant ID
+ */
+export const computeSessionSummary = async (sessionId, participantId) => {
+  try {
+    const response = await api.post('/motor/summary/session', {
+      sessionId,
+      participantId,
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Error computing session summary:', error);
+    throw error;
+  }
+};
+
+/**
+ * Log global interactions (for ML training)
+ * @param {string} sessionId - Session ID
+ * @param {array} interactions - Array of global interaction objects
+ */
+export const logGlobalInteractions = async (sessionId, interactions) => {
+  try {
+    const response = await api.post('/global/interactions', {
+      sessionId,
+      interactions,
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Error logging global interactions:', error);
+    throw error;
+  }
+};
+
 export default api;
 

@@ -166,6 +166,82 @@ motorAttemptBucketSchema.statics.addAttempts = async function(sessionId, attempt
     throw new Error(`Session with sessionId "${sessionId}" does not exist.`);
   }
   
+  // Get pointer samples for feature extraction
+  const MotorPointerTraceBucket = mongoose.model('MotorPointerTraceBucket');
+  const allSamples = await MotorPointerTraceBucket.getSessionSamples(sessionId);
+  
+  console.log(`\n📊 Processing ${attemptsArray.length} attempts with ${allSamples.length} pointer samples`);
+  
+  // Debug: Show first attempt structure
+  if (attemptsArray.length > 0) {
+    const sample = attemptsArray[0];
+    console.log(`   Sample attempt structure:`, {
+      round: sample.round,
+      bubbleId: sample.bubbleId,
+      column: sample.column,
+      spawnTms: sample.spawnTms,
+      clickTms: sample.click?.tms,
+      hasTarget: !!sample.target,
+      targetCoords: sample.target ? `(${sample.target.x.toFixed(3)}, ${sample.target.y.toFixed(3)})` : 'N/A'
+    });
+  }
+  
+  // Debug: Show pointer sample time range
+  if (allSamples.length > 0) {
+    const sortedSamples = [...allSamples].sort((a, b) => a.tms - b.tms);
+    console.log(`   Pointer sample time range: ${sortedSamples[0].tms} to ${sortedSamples[sortedSamples.length-1].tms}`);
+  }
+  
+  // Import feature extraction
+  const { extractAttemptFeatures } = await import('../utils/featureExtraction.js');
+  
+  // Enrich attempts with computed features
+  const enrichedAttempts = attemptsArray.map((attempt, idx) => {
+    // Get previous click time for inter-tap interval
+    const prevClickTms = idx > 0 ? attemptsArray[idx - 1].click?.tms : null;
+    
+    // Extract features if we have pointer data and the attempt was clicked
+    let features = {};
+    if (allSamples.length > 0 && attempt.click?.clicked) {
+      try {
+        features = extractAttemptFeatures({
+          samples: allSamples,
+          spawnTms: attempt.spawnTms,
+          clickTms: attempt.click.tms,
+          target: attempt.target,
+          prevClickTms,
+        });
+      } catch (err) {
+        console.error(`Error extracting features for attempt ${attempt.attemptId}:`, err.message);
+        // Continue with empty features if extraction fails
+        features = {
+          timing: {},
+          spatial: {},
+          kinematics: {},
+          fitts: {},
+        };
+      }
+    } else {
+      // Missed bubble or no pointer data
+      features = {
+        timing: {
+          reactionTimeMs: null,
+          movementTimeMs: null,
+          interTapMs: prevClickTms ? (attempt.despawnTms || Date.now()) - prevClickTms : null,
+        },
+        spatial: {},
+        kinematics: {},
+        fitts: {},
+      };
+    }
+    
+    // Merge attempt with computed features
+    return {
+      ...attempt,
+      ...features,
+    };
+  });
+  
   // Find current active bucket
   let bucket = await this.findOne({
     sessionId,
@@ -182,8 +258,8 @@ motorAttemptBucketSchema.statics.addAttempts = async function(sessionId, attempt
     });
   }
   
-  // Add attempts, creating new buckets as needed
-  for (const attempt of attemptsArray) {
+  // Add enriched attempts, creating new buckets as needed
+  for (const attempt of enrichedAttempts) {
     // Check if current bucket is full
     if (bucket.count >= MAX_ATTEMPTS_PER_BUCKET) {
       bucket.isFull = true;
@@ -198,7 +274,7 @@ motorAttemptBucketSchema.statics.addAttempts = async function(sessionId, attempt
       });
     }
     
-    // Add attempt
+    // Add enriched attempt
     bucket.attempts.push(attempt);
     bucket.count = bucket.attempts.length;
   }

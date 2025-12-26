@@ -1,10 +1,10 @@
 /**
  * Comprehensive Global Interaction Tracking System
  * Tracks all user interactions across the entire application
- * Uses MongoDB bucket pattern for efficient storage
+ * Uses ML-ready GlobalInteractionBucket for efficient storage
  */
 
-import { logInteractionToBucket, logInteractionBatchToBucket } from './api';
+import { logGlobalInteractions } from './api';
 
 class GlobalTracker {
   constructor() {
@@ -49,7 +49,13 @@ class GlobalTracker {
 
   // Helper: Create interaction data structure
   createInteractionData(eventType, data = {}) {
+    if (!this.sessionId) {
+      console.warn('⚠️ GlobalTracker: sessionId not set, interaction will be skipped');
+      return null;
+    }
+    
     return {
+      sessionId: this.sessionId,
       module: 'global',
       eventType,
       timestamp: new Date(),
@@ -59,6 +65,9 @@ class GlobalTracker {
 
   // Helper: Add interaction to buffer
   addToBuffer(data) {
+    // Skip if data is null (no sessionId)
+    if (!data) return;
+    
     this.interactionBuffer.push(data);
     
     // Auto-flush if buffer is full
@@ -79,6 +88,13 @@ class GlobalTracker {
   async flushBatch(synchronous = false) {
     if (this.interactionBuffer.length === 0) return;
     
+    // Skip if no sessionId
+    if (!this.sessionId) {
+      console.warn('⚠️ GlobalTracker: Cannot flush batch, sessionId not set');
+      this.interactionBuffer = []; // Clear invalid buffer
+      return;
+    }
+    
     const batch = [...this.interactionBuffer];
     this.interactionBuffer = [];
     
@@ -92,18 +108,17 @@ class GlobalTracker {
         // Use sendBeacon for synchronous unload
         const blob = new Blob([JSON.stringify({
           sessionId: this.sessionId,
-          interactionType: 'global',
           interactions: batch,
         })], { type: 'application/json' });
         
         navigator.sendBeacon(
-          `${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/interactions/batch`,
+          `${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/global/interactions`,
           blob
         );
       } else {
-        // Async batch
-        await logInteractionBatchToBucket(this.sessionId, 'global', batch);
-        console.log(`📦 Flushed ${batch.length} global interactions to bucket`);
+        // Async batch - Use ML-ready endpoint
+        await logGlobalInteractions(this.sessionId, batch);
+        console.log(`📦 Flushed ${batch.length} global interactions (ML-ready)`);
       }
     } catch (error) {
       console.error('Error flushing interaction batch:', error);

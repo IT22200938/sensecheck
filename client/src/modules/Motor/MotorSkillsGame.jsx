@@ -49,6 +49,7 @@ const MotorSkillsGame = () => {
   const [roundStartTime, setRoundStartTime] = useState(null);
   const [timeRemaining, setTimeRemaining] = useState(20);
   const [isComplete, setIsComplete] = useState(false);
+  const [isCompleting, setIsCompleting] = useState(false); // Prevent restart during completion
   const [interactions, setInteractions] = useState([]);
 
   const bubblesRef = useRef([]);
@@ -57,6 +58,8 @@ const MotorSkillsGame = () => {
   const roundTimerRef = useRef(null);
   const patternIndexRef = useRef(0);
   const isPlayingRef = useRef(false);
+  const cursorSamplingRef = useRef(null);
+  const stageRef = useRef(null);
 
   const currentPattern = BUBBLE_PATTERNS[currentRound - 1];
   
@@ -136,7 +139,8 @@ const MotorSkillsGame = () => {
     // Track bubble hit with enhanced metrics
     if (motorTrackerRef.current) {
       motorTrackerRef.current.trackBubbleHit(bubble, event.evt);
-      motorTrackerRef.current.trackPointerUp(event.evt, bubble.id, true);
+      // NOTE: Don't call trackPointerUp here - it creates duplicate events!
+      // trackBubbleHit already logs all the data we need
     }
 
     // Remove bubble
@@ -167,6 +171,27 @@ const MotorSkillsGame = () => {
     motorTrackerRef.current.trackPointerDown(event.evt);
   };
 
+  // Continuous cursor sampling at 60Hz for better feature extraction
+  const sampleCursorPosition = useCallback(() => {
+    if (!isPlayingRef.current) return;
+    
+    const stage = stageRef.current;
+    if (stage && motorTrackerRef.current) {
+      const pointerPos = stage.getPointerPosition();
+      if (pointerPos) {
+        // Create a fake event object with the cursor position
+        const fakeEvent = {
+          clientX: pointerPos.x,
+          clientY: pointerPos.y,
+        };
+        motorTrackerRef.current.trackPointerMove(fakeEvent);
+      }
+    }
+    
+    // Continue sampling
+    cursorSamplingRef.current = requestAnimationFrame(sampleCursorPosition);
+  }, []);
+
   // Start round
   const startRound = () => {
     setIsPlaying(true);
@@ -192,6 +217,9 @@ const MotorSkillsGame = () => {
     // Start animation
     animationFrameRef.current = requestAnimationFrame(animate);
 
+    // Start continuous cursor sampling at 60Hz
+    cursorSamplingRef.current = requestAnimationFrame(sampleCursorPosition);
+
     // Round timer
     const startTime = Date.now();
     roundTimerRef.current = setInterval(() => {
@@ -206,7 +234,7 @@ const MotorSkillsGame = () => {
   };
 
   // End round
-  const endRound = () => {
+  const endRound = async () => {
     setIsPlaying(false);
     isPlayingRef.current = false; // Set ref synchronously to stop animation
     
@@ -223,6 +251,32 @@ const MotorSkillsGame = () => {
       cancelAnimationFrame(animationFrameRef.current);
       animationFrameRef.current = null;
     }
+    if (cursorSamplingRef.current) {
+      cancelAnimationFrame(cursorSamplingRef.current);
+      cursorSamplingRef.current = null;
+    }
+
+    // Track round completion and send to ML schemas
+    if (motorTrackerRef.current) {
+      try {
+        // Calculate hits and misses from tracker's logged interactions
+        const allInteractions = motorTrackerRef.current.getAllInteractions();
+        const roundInteractions = allInteractions.filter(i => i.round === currentRound);
+        const hits = roundInteractions.filter(i => i.eventType === 'bubble_hit').length;
+        const misses = roundInteractions.filter(i => i.eventType === 'bubble_miss').length;
+        
+        await motorTrackerRef.current.trackRoundComplete({
+          hits: hits,
+          misses: misses,
+          escaped: misses, // Escaped bubbles are the same as misses
+          duration: BUBBLE_PATTERNS[currentRound - 1].duration,
+          averageReactionTime: 0, // Could calculate this if needed
+        });
+      } catch (error) {
+        console.error('Error tracking round completion:', error);
+        // Continue game even if tracking fails
+      }
+    }
 
     // Clear remaining bubbles
     bubblesRef.current = [];
@@ -234,6 +288,8 @@ const MotorSkillsGame = () => {
         setCurrentRound((prev) => prev + 1);
       }, 2000);
     } else {
+      // Mark as completing to prevent button from showing
+      setIsCompleting(true);
       setTimeout(() => {
         completeTest();
       }, 500);
@@ -246,14 +302,23 @@ const MotorSkillsGame = () => {
     
     // Flush remaining motor skills interactions
     if (motorTrackerRef.current) {
-      await motorTrackerRef.current.complete();
-      const totalInteractions = motorTrackerRef.current.getAllInteractions().length;
-      console.log(`🎯 Motor skills tracking complete: ${totalInteractions} enhanced events tracked`);
+      try {
+        await motorTrackerRef.current.complete();
+        const totalInteractions = motorTrackerRef.current.getAllInteractions().length;
+        console.log(`🎯 Motor skills tracking complete: ${totalInteractions} enhanced events tracked`);
+      } catch (error) {
+        console.error('Error completing motor skills tracking:', error);
+      }
     }
     
     // Mark module as completed
-    await completeModule('reaction');
+    try {
+      await completeModule('reaction');
+    } catch (error) {
+      console.error('Error completing module:', error);
+    }
     
+    // Always set complete, even if tracking fails
     setIsComplete(true);
   };
 
@@ -329,13 +394,19 @@ const MotorSkillsGame = () => {
             </div>
           </div>
 
-          {!isPlaying && (
+          {!isPlaying && !isCompleting && (
             <button
               onClick={startRound}
               className="btn-primary w-full mt-4"
             >
               {currentRound === 1 ? 'Start Game' : `Start Round ${currentRound}`}
             </button>
+          )}
+          
+          {isCompleting && (
+            <div className="text-center mt-4 text-cyber-blue-400 animate-pulse">
+              Completing assessment...
+            </div>
           )}
         </div>
 
@@ -346,6 +417,7 @@ const MotorSkillsGame = () => {
             className="mx-auto bg-gradient-to-b from-blue-950 to-purple-950 rounded-lg overflow-hidden relative"
           >
             <Stage
+              ref={stageRef}
               width={STAGE_WIDTH}
               height={STAGE_HEIGHT}
               onClick={handleStageClick}

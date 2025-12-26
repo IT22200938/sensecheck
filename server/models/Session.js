@@ -133,43 +133,78 @@ const sessionSchema = new mongoose.Schema({
 // Raw buckets have separate 90-day TTL
 sessionSchema.index({ createdAt: 1 }, { expireAfterSeconds: 31536000 }); // 365 days
 
-// Virtual field to get all interaction buckets for this session
-sessionSchema.virtual('interactionBuckets', {
-  ref: 'InteractionBucket',
+// Virtual fields to get all interaction buckets for this session
+sessionSchema.virtual('globalInteractions', {
+  ref: 'GlobalInteractionBucket',
   localField: 'sessionId',
   foreignField: 'sessionId',
 });
 
-// Method to get interaction statistics for this session
-sessionSchema.methods.getInteractionStats = async function() {
-  const InteractionBucket = mongoose.model('InteractionBucket');
-  return await InteractionBucket.getSessionStats(this.sessionId);
+sessionSchema.virtual('motorPointerTraces', {
+  ref: 'MotorPointerTraceBucket',
+  localField: 'sessionId',
+  foreignField: 'sessionId',
+});
+
+sessionSchema.virtual('motorAttempts', {
+  ref: 'MotorAttemptBucket',
+  localField: 'sessionId',
+  foreignField: 'sessionId',
+});
+
+// Method to get global interactions for this session
+sessionSchema.methods.getGlobalInteractions = async function() {
+  const GlobalInteractionBucket = mongoose.model('GlobalInteractionBucket');
+  return await GlobalInteractionBucket.getSessionInteractions(this.sessionId);
 };
 
-// Method to get all interactions for this session
-sessionSchema.methods.getAllInteractions = async function(interactionType = null) {
-  const InteractionBucket = mongoose.model('InteractionBucket');
-  return await InteractionBucket.getSessionInteractions(this.sessionId, interactionType);
+// Method to get motor pointer traces for this session
+sessionSchema.methods.getMotorPointerTraces = async function(round = null) {
+  const MotorPointerTraceBucket = mongoose.model('MotorPointerTraceBucket');
+  return await MotorPointerTraceBucket.getSessionSamples(this.sessionId, round);
+};
+
+// Method to get motor attempts for this session
+sessionSchema.methods.getMotorAttempts = async function(round = null) {
+  const MotorAttemptBucket = mongoose.model('MotorAttemptBucket');
+  return await MotorAttemptBucket.getSessionAttempts(this.sessionId, round);
+};
+
+// Method to get motor attempt statistics
+sessionSchema.methods.getMotorStats = async function() {
+  const MotorAttemptBucket = mongoose.model('MotorAttemptBucket');
+  return await MotorAttemptBucket.getSessionStats(this.sessionId);
 };
 
 // Method to delete all associated interaction buckets
-sessionSchema.methods.deleteInteractionBuckets = async function() {
-  const InteractionBucket = mongoose.model('InteractionBucket');
-  const result = await InteractionBucket.deleteMany({ sessionId: this.sessionId });
-  return result.deletedCount;
+sessionSchema.methods.deleteAllBuckets = async function() {
+  const GlobalInteractionBucket = mongoose.model('GlobalInteractionBucket');
+  const MotorPointerTraceBucket = mongoose.model('MotorPointerTraceBucket');
+  const MotorAttemptBucket = mongoose.model('MotorAttemptBucket');
+  
+  const results = await Promise.all([
+    GlobalInteractionBucket.deleteMany({ sessionId: this.sessionId }),
+    MotorPointerTraceBucket.deleteMany({ sessionId: this.sessionId }),
+    MotorAttemptBucket.deleteMany({ sessionId: this.sessionId }),
+  ]);
+  
+  return {
+    globalInteractions: results[0].deletedCount,
+    motorPointerTraces: results[1].deletedCount,
+    motorAttempts: results[2].deletedCount,
+    total: results.reduce((sum, r) => sum + r.deletedCount, 0),
+  };
 };
 
 // Pre-remove hook to clean up associated buckets and summaries
 sessionSchema.pre('remove', async function(next) {
   try {
     // Delete all bucket types
-    const InteractionBucket = mongoose.model('InteractionBucket');
     const GlobalInteractionBucket = mongoose.model('GlobalInteractionBucket');
     const MotorPointerTraceBucket = mongoose.model('MotorPointerTraceBucket');
     const MotorAttemptBucket = mongoose.model('MotorAttemptBucket');
     
     await Promise.all([
-      InteractionBucket.deleteMany({ sessionId: this.sessionId }),
       GlobalInteractionBucket.deleteMany({ sessionId: this.sessionId }),
       MotorPointerTraceBucket.deleteMany({ sessionId: this.sessionId }),
       MotorAttemptBucket.deleteMany({ sessionId: this.sessionId }),
