@@ -4,13 +4,17 @@ import {
   saveLiteracyResults,
   getSessionResults,
   createSession,
-  updateModuleCompletion
+  updateModuleCompletion,
+  updateSessionPerformance
 } from '../controllers/resultsController.js';
 
 const router = express.Router();
 
 // POST /api/results/session - Create or update session
 router.post('/session', createSession);
+
+// PATCH /api/results/session/performance - Update session performance metrics
+router.patch('/session/performance', updateSessionPerformance);
 
 // POST /api/results/module-complete - Update module completion
 router.post('/module-complete', updateModuleCompletion);

@@ -181,19 +181,85 @@ export function extractAttemptFeatures({
   }
   
   // 6) Overshoot count (distance-to-target reversals near target)
-  const d = moveSeg.map(s => dist(s, target));
-  let overshootCount = 0;
-  const gate = 2 * target.radius;
+  // For MOVING targets (like rising bubbles), we need to interpolate
+  // the target position at each sample time
+  const clickTime = moveSeg[moveSeg.length - 1].tms;
+  const spawnTime = moveSeg[0].tms;
+  const totalDuration = clickTime - spawnTime;
   
+  // Calculate distance to target at each sample
+  // For moving targets, interpolate target position based on time
+  // The bubble rises (y decreases) from spawn to click
+  const d = moveSeg.map(s => {
+    // If we have timing info, interpolate target position
+    // Bubbles rise linearly, so target.y at time t is:
+    // targetY(t) = spawnY + (clickY - spawnY) * (t - spawnTime) / totalDuration
+    // Since we only have final target position, use it directly for now
+    // (this gives correct results for stationary targets)
+    return dist(s, target);
+  });
+  
+  let overshootCount = 0;
+  // Increased gate from 2x to 4x radius for more sensitive detection
+  const gate = 4 * target.radius;
+  
+  // Method 1: Distance reversal detection (classic approach)
   for (let i = 2; i < d.length; i++) {
     const ddPrev = d[i-1] - d[i-2];
     const dd = d[i] - d[i-1];
     
-    // Reversal: moving closer then moving away
-    if (ddPrev < 0 && dd > 0 && d[i] < gate) {
+    // Reversal: was approaching (distance decreasing), now receding (distance increasing)
+    // Must be within gate distance to target
+    if (ddPrev < -0.001 && dd > 0.001 && d[i] < gate) {
       overshootCount++;
     }
   }
+  
+  // Method 2: Detect overshoots in the FINAL approach phase only
+  // (last 30% of movement, when pointer is near the click location)
+  // This is more reliable for moving targets
+  const finalPhaseStart = Math.floor(moveSeg.length * 0.7);
+  let finalPhaseOvershoots = 0;
+  
+  if (moveSeg.length > 5) {
+    const finalSeg = moveSeg.slice(finalPhaseStart);
+    const finalD = finalSeg.map(s => dist(s, target));
+    
+    for (let i = 2; i < finalD.length; i++) {
+      const ddPrev = finalD[i-1] - finalD[i-2];
+      const dd = finalD[i] - finalD[i-1];
+      
+      if (ddPrev < -0.001 && dd > 0.001) {
+        finalPhaseOvershoots++;
+      }
+    }
+  }
+  
+  // Method 3: Position oscillation detection (catches lateral wobbles)
+  // Look for back-and-forth movement in x or y direction when near target
+  let oscillationCount = 0;
+  if (moveSeg.length > 4) {
+    for (let i = 3; i < moveSeg.length; i++) {
+      if (d[i] < gate) {
+        // Check x-direction oscillation
+        const dxPrev = moveSeg[i-1].x - moveSeg[i-2].x;
+        const dx = moveSeg[i].x - moveSeg[i-1].x;
+        const xReversal = (dxPrev > 0.002 && dx < -0.002) || (dxPrev < -0.002 && dx > 0.002);
+        
+        // Check y-direction oscillation  
+        const dyPrev = moveSeg[i-1].y - moveSeg[i-2].y;
+        const dy = moveSeg[i].y - moveSeg[i-1].y;
+        const yReversal = (dyPrev > 0.002 && dy < -0.002) || (dyPrev < -0.002 && dy > 0.002);
+        
+        if (xReversal || yReversal) {
+          oscillationCount++;
+        }
+      }
+    }
+  }
+  
+  // Use the maximum of all detection methods
+  overshootCount = Math.max(overshootCount, finalPhaseOvershoots, oscillationCount);
   
   // 7) Fitts' law throughput
   const D = directDist;

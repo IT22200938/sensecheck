@@ -62,7 +62,7 @@ const sessionSchema = new mongoose.Schema({
   device: {
     pointerPrimary: {
       type: String,
-      enum: ['mouse', 'touch', 'pen', 'unknown'],
+      enum: ['mouse', 'touchpad', 'touch', 'pen', 'unknown'],
       default: 'unknown',
       index: true,
     },

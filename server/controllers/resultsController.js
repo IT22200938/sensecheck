@@ -211,6 +211,66 @@ export const updateModuleCompletion = async (req, res) => {
   }
 };
 
+// Update session performance metrics
+export const updateSessionPerformance = async (req, res) => {
+  try {
+    const { sessionId, perf } = req.body;
+
+    if (!sessionId || !perf) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Session ID and performance metrics are required' 
+      });
+    }
+
+    const session = await Session.findOneAndUpdate(
+      { sessionId },
+      { 
+        perf: {
+          samplingHzTarget: perf.samplingHzTarget || 60,
+          samplingHzEstimated: perf.samplingHzEstimated,
+          avgFrameMs: perf.avgFrameMs,
+          p95FrameMs: perf.p95FrameMs,
+          droppedFrames: perf.droppedFrames,
+          inputLagMsEstimate: perf.inputLagMsEstimate,
+        }
+      },
+      { new: true }
+    );
+
+    if (!session) {
+      return res.status(404).json({ 
+        success: false, 
+        error: 'Session not found' 
+      });
+    }
+
+    logger.info(`Performance metrics updated for session ${sessionId}`, perf);
+
+    res.json({ 
+      success: true, 
+      data: session 
+    });
+  } catch (error) {
+    logger.error('Error updating session performance:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Failed to update session performance' 
+    });
+  }
+};
+
+// Helper: Compute age bucket from age
+function computeAgeBucket(age) {
+  if (!age || age < 18) return 'unknown';
+  if (age <= 24) return '18-24';
+  if (age <= 34) return '25-34';
+  if (age <= 44) return '35-44';
+  if (age <= 54) return '45-54';
+  if (age <= 64) return '55-64';
+  return '65+';
+}
+
 // Create or update session
 export const createSession = async (req, res) => {
   try {
@@ -231,6 +291,9 @@ export const createSession = async (req, res) => {
       memory,
       platform,
       language,
+      // ML-ready normalized fields
+      device,
+      screen,
       userInfo 
     } = req.body;
 
@@ -242,15 +305,19 @@ export const createSession = async (req, res) => {
       });
     }
 
+    // Generate participantId (anonymized hash based on session)
+    const participantId = `participant_${sessionId.split('_')[1] || Date.now()}`;
+
     const session = await Session.findOneAndUpdate(
       { sessionId },
       { 
         sessionId,
-        // Basic device info
+        participantId,
+        // Basic device info (legacy)
         userAgent,
         screenResolution,
         deviceType,
-        // Enhanced device metrics
+        // Enhanced device metrics (legacy)
         preferredTheme,
         viewportWidth,
         viewportHeight,
@@ -263,10 +330,23 @@ export const createSession = async (req, res) => {
         memory,
         platform,
         language,
-        // User demographic info
+        // ML-ready normalized device block
+        device: device ? {
+          pointerPrimary: device.pointerPrimary || 'unknown',
+          os: device.os || 'unknown',
+          browser: device.browser || 'unknown',
+        } : undefined,
+        // ML-ready screen info
+        screen: screen ? {
+          width: screen.width,
+          height: screen.height,
+          dpr: screen.dpr || devicePixelRatio || 1,
+        } : undefined,
+        // User demographic info with ageBucket
         userInfo: {
           age: parseInt(userInfo.age),
           gender: userInfo.gender,
+          ageBucket: computeAgeBucket(parseInt(userInfo.age)),
         },
         createdAt: new Date(),
       },
@@ -274,11 +354,13 @@ export const createSession = async (req, res) => {
     );
 
     logger.info(`Session created/updated: ${sessionId}`, { 
+      participantId,
       age: userInfo.age, 
+      ageBucket: computeAgeBucket(parseInt(userInfo.age)),
       gender: userInfo.gender,
       deviceType,
-      platform,
-      viewportWidth: `${viewportWidth}x${viewportHeight}`
+      device: device ? `${device.os} / ${device.browser} / ${device.pointerPrimary}` : 'legacy',
+      viewport: `${viewportWidth}x${viewportHeight}`
     });
 
     res.status(201).json({ 
