@@ -156,6 +156,20 @@ export const createSession = async (sessionData) => {
   }
 };
 
+// Update session with performance metrics
+export const updateSessionPerformance = async (sessionId, perfMetrics) => {
+  try {
+    const response = await api.patch('/results/session/performance', {
+      sessionId,
+      perf: perfMetrics,
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Error updating session performance:', error);
+    throw error;
+  }
+};
+
 // Vision Results
 export const saveVisionResults = async (resultsData) => {
   try {

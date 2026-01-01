@@ -160,10 +160,11 @@ export const calculateLiteracyScore = (responses) => {
   // Time bonus/penalty: faster responses get slight bonus, slower get penalty
   // Optimal time per question: 8-15 seconds
   let timeFactor = 0;
-  if (averageTime < 8000) {
-    // Too fast - might be guessing, small penalty
-    timeFactor = -5;
-  } else if (averageTime > 20000) {
+  // if (averageTime < 8000) {
+  //   // Too fast - might be guessing, small penalty
+  //   timeFactor = -5;
+  // } 
+  if (averageTime > 20000) {
     // Very slow - small penalty
     timeFactor = -10;
   } else {

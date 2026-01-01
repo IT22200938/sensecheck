@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { createSession } from '../utils/api';
 import useStore from '../state/store';
 import useDeviceInfo from '../hooks/useDeviceInfo';
+import logo from '../resources/logo.png';
 
 const UserInfoModal = ({ isOpen, onClose, onSubmit }) => {
   const sessionId = useStore((state) => state.sessionId);
@@ -17,7 +18,6 @@ const UserInfoModal = ({ isOpen, onClose, onSubmit }) => {
   const validateForm = () => {
     const newErrors = {};
 
-    // Age validation
     const age = parseInt(formData.age);
     if (!formData.age) {
       newErrors.age = 'Age is required';
@@ -25,7 +25,6 @@ const UserInfoModal = ({ isOpen, onClose, onSubmit }) => {
       newErrors.age = 'Please enter a valid age (1-120)';
     }
 
-    // Gender validation
     if (!formData.gender) {
       newErrors.gender = 'Please select a gender';
     }
@@ -42,14 +41,11 @@ const UserInfoModal = ({ isOpen, onClose, onSubmit }) => {
     setIsSubmitting(true);
 
     try {
-      // Save user info to backend with complete device information
       await createSession({
         sessionId,
-        // Basic device info
         userAgent: deviceInfo.userAgent,
         screenResolution: deviceInfo.screenResolution,
         deviceType: deviceInfo.deviceType,
-        // Enhanced device metrics
         preferredTheme: deviceInfo.preferredTheme,
         viewportWidth: deviceInfo.viewportWidth,
         viewportHeight: deviceInfo.viewportHeight,
@@ -62,14 +58,14 @@ const UserInfoModal = ({ isOpen, onClose, onSubmit }) => {
         memory: deviceInfo.memory,
         platform: deviceInfo.platform,
         language: deviceInfo.language,
-        // User demographic info
+        device: deviceInfo.device,
+        screen: deviceInfo.screen,
         userInfo: {
           age: parseInt(formData.age),
           gender: formData.gender,
         },
       });
 
-      // Call parent callback
       onSubmit(formData);
       onClose();
     } catch (error) {
@@ -86,7 +82,6 @@ const UserInfoModal = ({ isOpen, onClose, onSubmit }) => {
       ...prev,
       [name]: value,
     }));
-    // Clear error for this field
     if (errors[name]) {
       setErrors((prev) => ({
         ...prev,
@@ -98,20 +93,25 @@ const UserInfoModal = ({ isOpen, onClose, onSubmit }) => {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
-      <div className="card max-w-md w-full mx-4 animate-fade-in">
-        <div className="text-center mb-6">
-          <h2 className="text-3xl font-bold mb-2">Welcome to Sensecheck Facility</h2>
-          <p className="text-gray-400">
-            Please provide some basic information before starting your assessment
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4">
+      <div className="w-full max-w-md rounded-3xl bg-gray-900/90 backdrop-blur-xl border border-gray-800 p-8 shadow-2xl animate-fade-in relative overflow-hidden">
+        {/* Decorative glow */}
+        <div className="absolute -top-20 -right-20 w-40 h-40 rounded-full blur-3xl pointer-events-none" style={{ backgroundColor: 'rgba(var(--primary-color-rgb), 0.2)' }} />
+        
+        {/* Header */}
+        <div className="relative text-center mb-8">
+          <img src={logo} alt="AURA Logo" className="w-16 h-16 mx-auto mb-4" />
+          <h2 className="text-2xl font-bold text-white mb-2">Welcome to AURA</h2>
+          <p className="text-sm text-gray-400">
+            Please provide some basic information to begin
           </p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form onSubmit={handleSubmit} className="relative space-y-6">
           {/* Age Input */}
           <div>
-            <label htmlFor="age" className="block text-sm font-semibold mb-2">
-              Age <span className="text-red-400">*</span>
+            <label htmlFor="age" className="block text-sm font-medium text-gray-300 mb-2">
+              Age <span style={{ color: 'var(--primary-color)' }}>*</span>
             </label>
             <input
               id="age"
@@ -121,55 +121,101 @@ const UserInfoModal = ({ isOpen, onClose, onSubmit }) => {
               max="120"
               value={formData.age}
               onChange={handleChange}
-              className={`input-field ${errors.age ? 'border-red-500 focus:ring-red-500' : ''}`}
+              className="w-full px-4 py-3 rounded-xl bg-gray-800/50 text-white placeholder-gray-500 transition-all duration-300 focus:outline-none"
+              style={{
+                border: errors.age 
+                  ? '2px solid rgba(239, 68, 68, 0.5)' 
+                  : '2px solid rgba(55, 65, 81, 0.5)',
+              }}
+              onFocus={(e) => {
+                if (!errors.age) {
+                  e.target.style.borderColor = 'rgba(var(--primary-color-rgb), 0.5)';
+                  e.target.style.boxShadow = '0 0 15px rgba(var(--primary-color-rgb), 0.1)';
+                }
+              }}
+              onBlur={(e) => {
+                if (!errors.age) {
+                  e.target.style.borderColor = 'rgba(55, 65, 81, 0.5)';
+                  e.target.style.boxShadow = 'none';
+                }
+              }}
               placeholder="Enter your age"
               autoFocus
             />
             {errors.age && (
-              <p className="text-red-400 text-sm mt-1">{errors.age}</p>
+              <p className="text-red-400 text-xs mt-2 flex items-center gap-1">
+                <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                </svg>
+                {errors.age}
+              </p>
             )}
           </div>
 
           {/* Gender Selection */}
           <div>
-            <label className="block text-sm font-semibold mb-2">
-              Gender <span className="text-red-400">*</span>
+            <label className="block text-sm font-medium text-gray-300 mb-2">
+              Gender <span style={{ color: 'var(--primary-color)' }}>*</span>
             </label>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-2">
               {['Male', 'Female', 'Other', 'Prefer not to say'].map((option) => (
                 <button
                   key={option}
                   type="button"
                   onClick={() => handleChange({ target: { name: 'gender', value: option } })}
-                  className={`p-3 rounded-lg border-2 transition-all duration-200 ${
-                    formData.gender === option
-                      ? 'bg-cyber-blue-500 border-cyber-blue-400 text-white'
-                      : 'bg-gray-700/50 border-gray-600 hover:border-gray-500'
-                  }`}
+                  className="p-3 rounded-xl text-sm font-medium transition-all duration-300"
+                  style={formData.gender === option 
+                    ? { 
+                        backgroundColor: 'var(--primary-color)', 
+                        color: 'white',
+                        boxShadow: '0 0 20px var(--primary-color-glow)'
+                      }
+                    : { 
+                        backgroundColor: 'rgba(31, 41, 55, 0.5)',
+                        color: '#d1d5db',
+                        border: '1px solid rgba(55, 65, 81, 0.5)'
+                      }
+                  }
                 >
                   {option}
                 </button>
               ))}
             </div>
             {errors.gender && (
-              <p className="text-red-400 text-sm mt-1">{errors.gender}</p>
+              <p className="text-red-400 text-xs mt-2 flex items-center gap-1">
+                <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                </svg>
+                {errors.gender}
+              </p>
             )}
           </div>
 
           {/* Privacy Notice */}
-          <div className="bg-cyan-900/20 border border-cyan-500/30 rounded-lg p-4">
-            <h4 className="text-sm font-semibold mb-2 text-cyan-300">🔒 Privacy Notice</h4>
-            <p className="text-xs text-gray-300">
-              Your information is collected anonymously for research purposes only. 
-              No personal identifying information is stored. All data is secured and 
-              will not be shared with third parties.
-            </p>
+          <div 
+            className="rounded-xl p-4"
+            style={{ 
+              backgroundColor: 'rgba(var(--primary-color-rgb), 0.1)',
+              border: '1px solid rgba(var(--primary-color-rgb), 0.2)'
+            }}
+          >
+            <div className="flex items-start gap-3">
+              <svg className="w-5 h-5 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" style={{ color: 'var(--primary-color)' }}>
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+              </svg>
+              <div>
+                <h4 className="text-sm font-medium mb-1" style={{ color: 'var(--primary-color)' }}>Privacy Protected</h4>
+                <p className="text-xs text-gray-400 leading-relaxed">
+                  Your information is collected anonymously for research purposes only. No personal identifying information is stored.
+                </p>
+              </div>
+            </div>
           </div>
 
           {/* Submit Error */}
           {errors.submit && (
-            <div className="bg-red-900/30 border border-red-500/50 rounded-lg p-3">
-              <p className="text-red-400 text-sm">{errors.submit}</p>
+            <div className="bg-red-900/30 border border-red-500/30 rounded-xl p-3">
+              <p className="text-red-400 text-sm text-center">{errors.submit}</p>
             </div>
           )}
 
@@ -177,22 +223,30 @@ const UserInfoModal = ({ isOpen, onClose, onSubmit }) => {
           <button
             type="submit"
             disabled={isSubmitting}
-            className="btn-primary w-full text-lg py-4"
+            className="w-full py-4 px-6 rounded-xl font-semibold text-white transition-all duration-300 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            style={{ 
+              background: 'linear-gradient(135deg, var(--primary-color) 0%, var(--primary-color-light) 100%)',
+              boxShadow: '0 4px 20px var(--primary-color-glow)'
+            }}
           >
             {isSubmitting ? (
-              <span className="flex items-center justify-center">
-                <span className="loading-spinner mr-2"></span>
-                Processing...
-              </span>
+              <>
+                <div className="w-5 h-5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+                <span>Processing...</span>
+              </>
             ) : (
-              'Begin Assessment'
+              <>
+                <span>Begin Assessment</span>
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                </svg>
+              </>
             )}
           </button>
         </form>
 
-        {/* Required Fields Note */}
-        <p className="text-center text-gray-500 text-xs mt-4">
-          <span className="text-red-400">*</span> Required fields
+        <p className="relative text-center text-gray-600 text-xs mt-4">
+          <span style={{ color: 'var(--primary-color)' }}>*</span> Required fields
         </p>
       </div>
     </div>
@@ -200,4 +254,3 @@ const UserInfoModal = ({ isOpen, onClose, onSubmit }) => {
 };
 
 export default UserInfoModal;
-

@@ -17,13 +17,28 @@ const LiteracyQuiz = () => {
   const { recordLiteracyResponse, completeLiteracyTest, completeModule } = useStore();
   const { trackEvent, trackClick, trackHover, trackFocus } = useInteractionTracking('literacy', true);
 
-  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+  // Load initial state from sessionStorage for persistence
+  const getInitialQuestionIndex = () => {
+    const saved = sessionStorage.getItem('sensecheck_literacy_question');
+    return saved ? parseInt(saved, 10) : 0;
+  };
+
+  const getInitialComplete = () => {
+    return sessionStorage.getItem('sensecheck_literacy_complete') === 'true';
+  };
+
+  const getSavedResults = () => {
+    const saved = sessionStorage.getItem('sensecheck_literacy_results');
+    return saved ? JSON.parse(saved) : null;
+  };
+
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(getInitialQuestionIndex);
   const [selectedAnswer, setSelectedAnswer] = useState('');
   const [questionStartTime, setQuestionStartTime] = useState(Date.now());
   const [focusShiftCount, setFocusShiftCount] = useState(0);
   const [hoverEvents, setHoverEvents] = useState([]);
-  const [isComplete, setIsComplete] = useState(false);
-  const [results, setResults] = useState(null);
+  const [isComplete, setIsComplete] = useState(getInitialComplete);
+  const [results, setResults] = useState(getSavedResults);
 
   const hoverTimerRef = useRef({});
 
@@ -31,17 +46,27 @@ const LiteracyQuiz = () => {
   const isLastQuestion = currentQuestionIndex === LITERACY_QUESTIONS.length - 1;
   const totalQuestions = LITERACY_QUESTIONS.length;
 
+  // Check if test was already completed in store
+  const storeCompleted = useStore((state) => state.literacyResults.completed);
   useEffect(() => {
-    setQuestionStartTime(Date.now());
-    setFocusShiftCount(0);
-    setHoverEvents([]);
-    trackEvent('question_shown', {
-      metadata: {
-        questionId: currentQuestion.id,
-        category: currentQuestion.category,
-      },
-    });
-  }, [currentQuestionIndex, currentQuestion, trackEvent]);
+    if (storeCompleted && !isComplete) {
+      setIsComplete(true);
+    }
+  }, [storeCompleted, isComplete]);
+
+  useEffect(() => {
+    if (!isComplete && currentQuestion) {
+      setQuestionStartTime(Date.now());
+      setFocusShiftCount(0);
+      setHoverEvents([]);
+      trackEvent('question_shown', {
+        metadata: {
+          questionId: currentQuestion.id,
+          category: currentQuestion.category,
+        },
+      });
+    }
+  }, [currentQuestionIndex, currentQuestion, trackEvent, isComplete]);
 
   const handleOptionClick = (option, event) => {
     setSelectedAnswer(option);
@@ -104,11 +129,12 @@ const LiteracyQuiz = () => {
     });
 
     if (isLastQuestion) {
-      // Complete the quiz
       await completeQuiz();
     } else {
-      // Move to next question
-      setCurrentQuestionIndex(currentQuestionIndex + 1);
+      const nextQuestion = currentQuestionIndex + 1;
+      setCurrentQuestionIndex(nextQuestion);
+      // Save progress to sessionStorage
+      sessionStorage.setItem('sensecheck_literacy_question', nextQuestion.toString());
       setSelectedAnswer('');
     }
   };
@@ -142,15 +168,18 @@ const LiteracyQuiz = () => {
 
     setResults(resultsData);
 
-    // Save to backend
     try {
       await saveLiteracyResults(resultsData);
-      
-      // Mark module as completed
       await completeModule('knowledge');
     } catch (error) {
       console.error('Failed to save results:', error);
     }
+
+    // Save completion state to sessionStorage
+    sessionStorage.setItem('sensecheck_literacy_complete', 'true');
+    sessionStorage.setItem('sensecheck_literacy_results', JSON.stringify(resultsData));
+    // Clear question progress since quiz is complete
+    sessionStorage.removeItem('sensecheck_literacy_question');
 
     setIsComplete(true);
   };
@@ -159,78 +188,34 @@ const LiteracyQuiz = () => {
     return (
       <Layout title="Computer Literacy Quiz Complete" subtitle="Knowledge Console">
         <div className="max-w-3xl mx-auto">
-          <div className="card text-center">
-            <div className="text-6xl mb-6">✅</div>
-            <h3 className="text-3xl font-bold mb-6">Quiz Complete!</h3>
-
-            {/* Overall Score */}
-            <div className="bg-gradient-to-r from-cyber-blue-500 to-cyber-purple-500 p-6 rounded-lg mb-6">
-              <div className="text-sm text-white/80 mb-2">Computer Literacy Score (CLS)</div>
-              <div className="text-6xl font-bold text-white">
-                {results.score.computerLiteracyScore.toFixed(1)}
-              </div>
-              <div className="text-white/80 mt-2">
-                {results.score.correctAnswers} / {results.score.totalQuestions} Correct
-                ({results.score.percentage}%)
-              </div>
-            </div>
-
-            {/* Category Breakdown */}
-            <div className="mb-6">
-              <h4 className="text-xl font-bold mb-4 text-left">Category Performance</h4>
-              <div className="grid grid-cols-2 gap-4">
-                {results.categoryScores.map((cat) => (
-                  <div key={cat.category} className="bg-gray-700/50 p-4 rounded-lg">
-                    <div className="text-sm text-gray-400 capitalize mb-1">
-                      {cat.category}
-                    </div>
-                    <div className="text-2xl font-bold text-cyber-blue-400">
-                      {cat.percentage}%
-                    </div>
-                    <div className="text-xs text-gray-500">
-                      {cat.correct}/{cat.total} correct
-                    </div>
-                  </div>
-                ))}
+          <div className="rounded-2xl bg-gray-900/70 backdrop-blur-xl border border-gray-800 p-8 shadow-xl text-center relative overflow-hidden">
+            {/* Success glow */}
+            <div className="absolute inset-0 pointer-events-none" style={{ background: 'linear-gradient(135deg, rgba(var(--primary-color-rgb), 0.1) 0%, transparent 50%)' }} />
+            
+            {/* Checkmark */}
+            <div className="relative mb-6">
+              <div 
+                className="w-20 h-20 mx-auto rounded-full flex items-center justify-center shadow-lg"
+                style={{ 
+                  background: 'linear-gradient(135deg, var(--primary-color) 0%, var(--primary-color-dark) 100%)',
+                  boxShadow: '0 10px 40px var(--primary-color-glow)'
+                }}
+              >
+                <svg className="w-10 h-10 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
               </div>
             </div>
-
-            {/* Performance Metrics */}
-            <div className="bg-gray-700/50 p-4 rounded-lg mb-6">
-              <h4 className="text-lg font-bold mb-3 text-left">Performance Metrics</h4>
-              <div className="grid grid-cols-3 gap-4 text-center">
-                <div>
-                  <div className="text-sm text-gray-400">Avg Response Time</div>
-                  <div className="text-lg font-semibold">
-                    {(results.metrics.averageResponseTime / 1000).toFixed(1)}s
-                  </div>
-                </div>
-                <div>
-                  <div className="text-sm text-gray-400">Focus Shifts</div>
-                  <div className="text-lg font-semibold">
-                    {results.metrics.totalFocusShifts}
-                  </div>
-                </div>
-                <div>
-                  <div className="text-sm text-gray-400">Hover Events</div>
-                  <div className="text-lg font-semibold">
-                    {results.metrics.totalHoverEvents}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Time Factor Explanation */}
-            <div className="bg-cyan-900/30 border border-cyan-500/30 p-4 rounded-lg mb-6 text-left">
-              <p className="text-sm text-gray-300">
-                <strong>Score Calculation:</strong> Your CLS is calculated based on correct
-                answers plus a time factor. Consistent, thoughtful responses are rewarded.
-              </p>
-            </div>
+            
+            <h3 className="relative text-2xl font-bold mb-6 text-white">Quiz Complete!</h3>
 
             <button
               onClick={() => navigate('/complete')}
-              className="btn-primary w-full"
+              className="relative w-full py-4 px-6 rounded-xl font-semibold text-white transition-all duration-300 shadow-lg"
+              style={{ 
+                background: 'linear-gradient(135deg, var(--primary-color) 0%, var(--primary-color-light) 100%)',
+                boxShadow: '0 4px 20px var(--primary-color-glow)'
+              }}
             >
               Finish Assessment
             </button>
@@ -249,49 +234,64 @@ const LiteracyQuiz = () => {
           label="Question Progress"
         />
 
-        <div className="card">
+        <div className="rounded-2xl bg-gray-900/70 backdrop-blur-xl border border-gray-800 p-6 sm:p-8 shadow-xl">
           {/* Question Header */}
           <div className="mb-6">
             <div className="flex justify-between items-center mb-4">
-              <span className="px-3 py-1 bg-cyber-blue-500/30 rounded-full text-sm font-semibold capitalize">
+              <span 
+                className="px-3 py-1 rounded-full text-sm font-medium capitalize"
+                style={{ 
+                  backgroundColor: 'rgba(var(--primary-color-rgb), 0.1)',
+                  border: '1px solid rgba(var(--primary-color-rgb), 0.2)',
+                  color: 'var(--primary-color)'
+                }}
+              >
                 {currentQuestion.category}
               </span>
-              <span className="text-sm text-gray-400">
+              <span className="text-sm text-gray-500">
                 Question {currentQuestionIndex + 1} of {totalQuestions}
               </span>
             </div>
-            <h3 className="text-2xl font-bold">{currentQuestion.question}</h3>
+            <h3 className="text-xl sm:text-2xl font-bold text-white">{currentQuestion.question}</h3>
           </div>
 
           {/* Options */}
           <div className="space-y-3 mb-6">
-            {currentQuestion.options.map((option) => (
+            {currentQuestion.options.map((option, index) => (
               <button
                 key={option}
                 onClick={(e) => handleOptionClick(option, e)}
                 onFocus={handleFocus}
                 onMouseEnter={() => handleOptionHover(option, true)}
                 onMouseLeave={() => handleOptionHover(option, false)}
-                className={`w-full p-4 rounded-lg text-left transition-all duration-200 ${
-                  selectedAnswer === option
-                    ? 'bg-cyber-blue-500 border-2 border-cyber-blue-400 shadow-lg'
-                    : 'bg-gray-700/50 border-2 border-gray-600 hover:border-gray-500'
-                }`}
+                className="w-full p-4 rounded-xl text-left transition-all duration-300 flex items-center gap-4"
+                style={selectedAnswer === option
+                  ? { 
+                      backgroundColor: 'var(--primary-color)', 
+                      color: 'white',
+                      boxShadow: '0 4px 20px var(--primary-color-glow)',
+                      border: '2px solid var(--primary-color)'
+                    }
+                  : { 
+                      backgroundColor: 'rgba(31, 41, 55, 0.5)',
+                      color: '#d1d5db',
+                      border: '2px solid rgba(55, 65, 81, 0.5)'
+                    }
+                }
               >
-                <div className="flex items-center">
-                  <div
-                    className={`w-5 h-5 rounded-full border-2 mr-3 flex items-center justify-center ${
-                      selectedAnswer === option
-                        ? 'border-white bg-white'
-                        : 'border-gray-400'
-                    }`}
-                  >
-                    {selectedAnswer === option && (
-                      <div className="w-2 h-2 rounded-full bg-cyber-blue-500"></div>
-                    )}
-                  </div>
-                  <span className="font-medium">{option}</span>
+                {/* Radio indicator */}
+                <div
+                  className="w-5 h-5 rounded-full flex-shrink-0 flex items-center justify-center transition-all duration-300"
+                  style={selectedAnswer === option
+                    ? { border: '2px solid white', backgroundColor: 'white' }
+                    : { border: '2px solid #6b7280' }
+                  }
+                >
+                  {selectedAnswer === option && (
+                    <div className="w-2 h-2 rounded-full" style={{ backgroundColor: 'var(--primary-color)' }}></div>
+                  )}
                 </div>
+                <span className="font-medium">{option}</span>
               </button>
             ))}
           </div>
@@ -300,21 +300,46 @@ const LiteracyQuiz = () => {
           <button
             onClick={handleSubmit}
             disabled={!selectedAnswer}
-            className="btn-primary w-full"
+            className="w-full py-4 px-6 rounded-xl font-semibold text-white transition-all duration-300 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none flex items-center justify-center gap-2"
+            style={{ 
+              background: 'linear-gradient(135deg, var(--primary-color) 0%, var(--primary-color-light) 100%)',
+              boxShadow: '0 4px 20px var(--primary-color-glow)'
+            }}
           >
-            {isLastQuestion ? 'Finish Quiz' : 'Next Question →'}
+            {isLastQuestion ? 'Finish Quiz' : (
+              <>
+                Next Question
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                </svg>
+              </>
+            )}
           </button>
         </div>
 
         {/* Instructions */}
-        <div className="card mt-6 bg-cyber-blue-900/20 border-cyber-blue-500/50">
-          <h4 className="font-bold mb-2">💡 Instructions</h4>
-          <ul className="text-sm text-gray-300 space-y-1">
-            <li>• Select the best answer for each question</li>
-            <li>• Take your time to read each option carefully</li>
-            <li>• Your response time and interactions are tracked</li>
-            <li>• Questions cover icons, terminology, navigation, and security</li>
-          </ul>
+        <div className="mt-6 rounded-2xl bg-gray-900/50 border border-gray-800 p-5">
+          <div className="flex items-start gap-3">
+            <div 
+              className="flex-shrink-0 w-10 h-10 rounded-xl flex items-center justify-center"
+              style={{ 
+                backgroundColor: 'rgba(var(--primary-color-rgb), 0.1)',
+                border: '1px solid rgba(var(--primary-color-rgb), 0.2)'
+              }}
+            >
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" style={{ color: 'var(--primary-color)' }}>
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <div>
+              <h4 className="font-semibold text-white mb-2">Instructions</h4>
+              <ul className="text-sm text-gray-400 space-y-1">
+                <li>• Select the best answer for each question</li>
+                <li>• Take your time to read each option carefully</li>
+                <li>• Questions cover icons, terminology, navigation, and security</li>
+              </ul>
+            </div>
+          </div>
         </div>
       </div>
     </Layout>
@@ -322,4 +347,3 @@ const LiteracyQuiz = () => {
 };
 
 export default LiteracyQuiz;
-

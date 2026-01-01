@@ -17,28 +17,52 @@ const VisualAcuityTest = () => {
   } = useStore();
   const { trackEvent, trackClick } = useInteractionTracking('visualAcuity', true);
 
-  const [currentSize, setCurrentSize] = useState(80);
+  // Load initial state from sessionStorage for persistence
+  const getInitialSize = () => {
+    const saved = sessionStorage.getItem('sensecheck_visualacuity_size');
+    return saved ? parseInt(saved, 10) : 80;
+  };
+
+  const getInitialComplete = () => {
+    return sessionStorage.getItem('sensecheck_visualacuity_complete') === 'true';
+  };
+
+  const getSavedResults = () => {
+    const saved = sessionStorage.getItem('sensecheck_visualacuity_results');
+    return saved ? JSON.parse(saved) : null;
+  };
+
+  const [currentSize, setCurrentSize] = useState(getInitialSize);
   const [currentNumber, setCurrentNumber] = useState(null);
   const [userAnswer, setUserAnswer] = useState('');
   const [attemptNumber, setAttemptNumber] = useState(1);
   const [attemptStartTime, setAttemptStartTime] = useState(Date.now());
-  const [isComplete, setIsComplete] = useState(false);
-  const [finalResults, setFinalResults] = useState(null);
-  const [lastCorrectSize, setLastCorrectSize] = useState(80);
+  const [isComplete, setIsComplete] = useState(getInitialComplete);
+  const [finalResults, setFinalResults] = useState(getSavedResults);
+  const [lastCorrectSize, setLastCorrectSize] = useState(getInitialSize);
 
-  // Generate random number for display
+  // Check if test was already completed in store
+  const storeCompleted = useStore((state) => state.visualAcuityResults.completed);
+  useEffect(() => {
+    if (storeCompleted && !isComplete) {
+      setIsComplete(true);
+    }
+  }, [storeCompleted, isComplete]);
+
   const generateNumber = () => {
-    return Math.floor(Math.random() * 90) + 10; // 10-99
+    return Math.floor(Math.random() * 90) + 10;
   };
 
   useEffect(() => {
-    const number = generateNumber();
-    setCurrentNumber(number);
-    setAttemptStartTime(Date.now());
-    trackEvent('number_shown', {
-      metadata: { number, size: currentSize, attempt: attemptNumber },
-    });
-  }, [currentSize, attemptNumber, trackEvent]);
+    if (!isComplete) {
+      const number = generateNumber();
+      setCurrentNumber(number);
+      setAttemptStartTime(Date.now());
+      trackEvent('number_shown', {
+        metadata: { number, size: currentSize, attempt: attemptNumber },
+      });
+    }
+  }, [currentSize, attemptNumber, trackEvent, isComplete]);
 
   const handleSubmit = async () => {
     if (!userAnswer.trim()) return;
@@ -59,27 +83,24 @@ const VisualAcuityTest = () => {
     trackEvent('attempt_submitted', { metadata: attemptData });
 
     if (isCorrect) {
-      // Correct answer - reduce size
       setLastCorrectSize(currentSize);
       const newSize = currentSize - 10;
       
       if (newSize < 20) {
-        // Test complete - reached minimum size
         await completeTest();
       } else {
         setCurrentSize(newSize);
         setVisualAcuitySize(newSize);
+        // Save progress to sessionStorage
+        sessionStorage.setItem('sensecheck_visualacuity_size', newSize.toString());
         setUserAnswer('');
         setAttemptNumber(1);
       }
     } else {
-      // Incorrect answer
       if (attemptNumber === 1) {
-        // First attempt failed - allow one retry
         setUserAnswer('');
         setAttemptNumber(2);
       } else {
-        // Second attempt failed - test complete
         await completeTest();
       }
     }
@@ -99,18 +120,22 @@ const VisualAcuityTest = () => {
 
     setFinalResults(resultsData);
 
-    // Save to backend
     try {
       await saveVisionResults({
         sessionId,
         visualAcuity: resultsData,
       });
       
-      // Mark module as completed
       await completeModule('perception');
     } catch (error) {
       console.error('Failed to save results:', error);
     }
+
+    // Save completion state to sessionStorage
+    sessionStorage.setItem('sensecheck_visualacuity_complete', 'true');
+    sessionStorage.setItem('sensecheck_visualacuity_results', JSON.stringify(resultsData));
+    // Clear progress since test is complete
+    sessionStorage.removeItem('sensecheck_visualacuity_size');
 
     setIsComplete(true);
   };
@@ -119,50 +144,42 @@ const VisualAcuityTest = () => {
     navigate('/');
   };
 
+  // Calculate progress (80 -> 20, so 7 steps: 80, 70, 60, 50, 40, 30, 20)
+  const progressSteps = 7;
+  const currentStep = Math.max(1, Math.ceil((80 - currentSize) / 10) + 1);
+
   if (isComplete && finalResults) {
     return (
       <Layout title="Visual Acuity Test Complete" subtitle="Perception Lab">
         <div className="max-w-2xl mx-auto">
-          <div className="card text-center">
-            <div className="text-6xl mb-6">✅</div>
-            <h3 className="text-3xl font-bold mb-6">Test Complete!</h3>
+          <div className="rounded-2xl bg-gray-900/70 backdrop-blur-xl border border-gray-800 p-8 shadow-xl text-center relative overflow-hidden">
+            {/* Success glow */}
+            <div className="absolute inset-0 pointer-events-none" style={{ background: 'linear-gradient(135deg, rgba(var(--primary-color-rgb), 0.1) 0%, transparent 50%)' }} />
             
-            <div className="space-y-4 text-left">
-              <div className="bg-gray-700/50 p-4 rounded-lg">
-                <div className="text-gray-400 text-sm mb-1">Snellen Visual Acuity</div>
-                <div className="text-4xl font-bold text-cyber-blue-400">
-                  {finalResults.snellenEstimate}
-                </div>
-              </div>
-              
-              <div className="grid grid-cols-2 gap-4">
-                <div className="bg-gray-700/50 p-4 rounded-lg">
-                  <div className="text-gray-400 text-sm mb-1">Smallest Size Resolved</div>
-                  <div className="text-xl font-semibold">{finalResults.finalResolvedSize}px</div>
-                </div>
-                
-                <div className="bg-gray-700/50 p-4 rounded-lg">
-                  <div className="text-gray-400 text-sm mb-1">Visual Angle</div>
-                  <div className="text-xl font-semibold">{finalResults.visualAngle}°</div>
-                </div>
-              </div>
-
-              <div className="bg-gray-700/50 p-4 rounded-lg">
-                <div className="text-gray-400 text-sm mb-1">Minimum Angle of Resolution (MAR)</div>
-                <div className="text-lg">{finalResults.mar} arc minutes</div>
-              </div>
-              
-              <div className="bg-cyan-900/30 border border-cyan-500/30 p-4 rounded-lg">
-                <p className="text-sm text-gray-300">
-                  <strong>Note:</strong> These results are estimates based on your screen size and
-                  assumed viewing distance. For clinical diagnosis, please consult an eye care professional.
-                </p>
+            {/* Checkmark */}
+            <div className="relative mb-6">
+              <div 
+                className="w-20 h-20 mx-auto rounded-full flex items-center justify-center shadow-lg"
+                style={{ 
+                  background: 'linear-gradient(135deg, var(--primary-color) 0%, var(--primary-color-dark) 100%)',
+                  boxShadow: '0 10px 40px var(--primary-color-glow)'
+                }}
+              >
+                <svg className="w-10 h-10 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
               </div>
             </div>
+            
+            <h3 className="relative text-2xl font-bold mb-6 text-white">Test Complete!</h3>
 
             <button
               onClick={handleContinue}
-              className="btn-primary w-full mt-8"
+              className="relative w-full py-4 px-6 rounded-xl font-semibold text-white transition-all duration-300 shadow-lg"
+              style={{ 
+                background: 'linear-gradient(135deg, var(--primary-color) 0%, var(--primary-color-light) 100%)',
+                boxShadow: '0 4px 20px var(--primary-color-glow)'
+              }}
             >
               Return to Home
             </button>
@@ -175,22 +192,37 @@ const VisualAcuityTest = () => {
   return (
     <Layout title="Visual Acuity Test" subtitle="Perception Lab • Chamber 2">
       <div className="max-w-3xl mx-auto">
-        <div className="card">
-          <div className="text-center mb-8">
-            {/* <h3 className="text-2xl font-bold mb-2">
-              Current Size: {currentSize}px
-            </h3> */}
-            <h3 className="text-xl font-bold text-gray-400">
+        {/* Progress Indicator */}
+        <div className="mb-6">
+          <div className="flex justify-between text-sm mb-2">
+            <span className="text-gray-400">Size Progress</span>
+            <span className="font-medium" style={{ color: 'var(--primary-color)' }}>{currentSize}px</span>
+          </div>
+          <div className="w-full bg-gray-800 rounded-full h-2 overflow-hidden">
+            <div
+              className="h-full rounded-full transition-all duration-500"
+              style={{ 
+                width: `${((80 - currentSize) / 60) * 100}%`,
+                background: 'linear-gradient(90deg, var(--primary-color-dark) 0%, var(--primary-color) 50%, var(--primary-color-light) 100%)'
+              }}
+            />
+          </div>
+        </div>
+
+        <div className="rounded-2xl bg-gray-900/70 backdrop-blur-xl border border-gray-800 p-6 sm:p-8 shadow-xl">
+          {/* Header */}
+          <div className="text-center mb-6">
+            <h3 className={`text-lg font-semibold ${attemptNumber === 2 ? 'text-amber-400' : 'text-gray-300'}`}>
               {attemptNumber === 1 
                 ? 'What number do you see in the circle below?' 
-                : 'Incorrect! Try again (Last chance)'}
+                : '⚠️ Incorrect! Try again (Last chance)'}
             </h3>
           </div>
 
           {/* Number Display */}
-          <div className="bg-gray-900 rounded-lg p-8 mb-6 flex justify-center items-center min-h-[500px]">
+          <div className="bg-gray-950 rounded-2xl p-8 mb-6 flex justify-center items-center min-h-[400px] sm:min-h-[450px] border border-gray-800">
             <div
-              className="rounded-full bg-white flex items-center justify-center font-bold text-gray-900 shadow-2xl"
+              className="rounded-full bg-white flex items-center justify-center font-bold text-gray-900 shadow-2xl transition-all duration-500"
               style={{
                 width: `${currentSize}px`,
                 height: `${currentSize}px`,
@@ -204,7 +236,7 @@ const VisualAcuityTest = () => {
           {/* Input Section */}
           <div className="space-y-4">
             <div>
-              <label htmlFor="number-input" className="block text-sm font-semibold mb-2">
+              <label htmlFor="number-input" className="block text-sm font-medium text-gray-300 mb-2">
                 Enter the number you see:
               </label>
               <input
@@ -215,7 +247,16 @@ const VisualAcuityTest = () => {
                   setUserAnswer(e.target.value);
                   trackEvent('input_change', { target: { value: e.target.value } });
                 }}
-                className="input-field text-center text-2xl"
+                onFocus={(e) => {
+                  e.target.style.borderColor = 'rgba(var(--primary-color-rgb), 0.5)';
+                  e.target.style.boxShadow = '0 0 15px rgba(var(--primary-color-rgb), 0.1)';
+                }}
+                onBlur={(e) => {
+                  e.target.style.borderColor = 'rgba(55, 65, 81, 0.5)';
+                  e.target.style.boxShadow = 'none';
+                }}
+                className="w-full px-4 py-4 rounded-xl bg-gray-800/50 text-white text-center text-2xl placeholder-gray-500 transition-all duration-300 focus:outline-none"
+                style={{ border: '2px solid rgba(55, 65, 81, 0.5)' }}
                 placeholder="Enter number"
                 autoFocus
                 onKeyPress={(e) => {
@@ -230,32 +271,53 @@ const VisualAcuityTest = () => {
                 handleSubmit();
               }}
               disabled={!userAnswer.trim()}
-              className="btn-primary w-full"
+              className="w-full py-4 px-6 rounded-xl font-semibold text-white transition-all duration-300 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none"
+              style={{ 
+                background: 'linear-gradient(135deg, var(--primary-color) 0%, var(--primary-color-light) 100%)',
+                boxShadow: '0 4px 20px var(--primary-color-glow)'
+              }}
             >
               Submit Answer
             </button>
           </div>
 
-          {/* Attempt Indicator */}
+          {/* Second Attempt Warning */}
           {attemptNumber === 2 && (
-            <div className="mt-4 p-3 bg-yellow-900/30 border border-yellow-500/50 rounded-lg text-center">
-              <span className="text-yellow-300 font-semibold">
-                ⚠️ Second Attempt - Answer carefully
-              </span>
+            <div className="mt-4 p-4 rounded-xl bg-amber-900/20 border border-amber-500/30">
+              <div className="flex items-center justify-center gap-2 text-amber-400">
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+                <span className="font-semibold">Second Attempt - Answer carefully</span>
+              </div>
             </div>
           )}
         </div>
 
-        {/* Instructions Card */}
-        <div className="card mt-6 bg-cyber-blue-900/20 border-cyber-blue-500/50">
-          <h4 className="font-bold mb-2">💡 Instructions</h4>
-          <ul className="text-sm text-gray-300 space-y-1">
-            <li>• Keep a one meter distance from the screen</li>
-            <li>• Identify the number displayed in the white circle</li>
-            <li>• The number will get smaller with each correct answer</li>
-            <li>• You get two retries if you answer incorrectly</li>
-            <li>• The test ends when you can no longer see the number clearly</li>
-          </ul>
+        {/* Instructions */}
+        <div className="mt-6 rounded-2xl bg-gray-900/50 border border-gray-800 p-5">
+          <div className="flex items-start gap-3">
+            <div 
+              className="flex-shrink-0 w-10 h-10 rounded-xl flex items-center justify-center"
+              style={{ 
+                backgroundColor: 'rgba(var(--primary-color-rgb), 0.1)',
+                border: '1px solid rgba(var(--primary-color-rgb), 0.2)'
+              }}
+            >
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" style={{ color: 'var(--primary-color)' }}>
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <div>
+              <h4 className="font-semibold text-white mb-2">Instructions</h4>
+              <ul className="text-sm text-gray-400 space-y-1">
+                <li>• Keep a one meter distance from the screen</li>
+                <li>• Identify the number displayed in the white circle</li>
+                <li>• The number will get smaller with each correct answer</li>
+                <li>• You get two attempts if you answer incorrectly</li>
+              </ul>
+            </div>
+          </div>
         </div>
       </div>
     </Layout>
@@ -263,4 +325,3 @@ const VisualAcuityTest = () => {
 };
 
 export default VisualAcuityTest;
-
