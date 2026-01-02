@@ -215,3 +215,30 @@ export const calculateCategoryScores = (responses) => {
   }));
 };
 
+/**
+ * Calculate full literacy results combining all metrics
+ * @param {Array} responses - Array of response objects
+ * @returns {object} Complete results
+ */
+export const calculateLiteracyResults = (responses) => {
+  const scoreData = calculateLiteracyScore(responses);
+  const categoryData = calculateCategoryScores(responses);
+  
+  // Convert category array to object for easier access
+  const categoryScores = {};
+  categoryData.forEach(cat => {
+    categoryScores[cat.category] = {
+      correct: cat.correct,
+      total: cat.total,
+      percentage: cat.percentage,
+    };
+  });
+  
+  return {
+    ...scoreData,
+    correctCount: scoreData.correctAnswers,
+    categoryScores,
+    categories: categoryData,
+  };
+};
+

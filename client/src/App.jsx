@@ -2,11 +2,23 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 
 // Pages
 import Home from './pages/Home';
-import Complete from './pages/Complete';
+
+// Game Flow
+import { GameProvider } from './context/GameContext';
+import GameFlow from './components/game/GameFlow';
+
+// Legacy individual tests (kept for backwards compatibility)
 import ColorBlindnessTest from './modules/Visual/ColorBlindnessTest';
 import VisualAcuityTest from './modules/Visual/VisualAcuityTest';
 import MotorSkillsGame from './modules/Motor/MotorSkillsGame';
 import LiteracyQuiz from './modules/Literacy/LiteracyQuiz';
+
+// Wrapper component for the unified game
+const GamePage = () => (
+  <GameProvider>
+    <GameFlow />
+  </GameProvider>
+);
 
 function App() {
   return (
@@ -14,11 +26,15 @@ function App() {
       <div className="min-h-screen">
         <Routes>
           <Route path="/" element={<Home />} />
+          
+          {/* Unified game flow */}
+          <Route path="/play" element={<GamePage />} />
+          
+          {/* Legacy routes - kept for backwards compatibility */}
           <Route path="/perception/color-blindness" element={<ColorBlindnessTest />} />
           <Route path="/perception/visual-acuity" element={<VisualAcuityTest />} />
           <Route path="/reaction/motor-skills" element={<MotorSkillsGame />} />
           <Route path="/knowledge/literacy" element={<LiteracyQuiz />} />
-          <Route path="/complete" element={<Complete />} />
         </Routes>
       </div>
     </Router>
@@ -26,4 +42,3 @@ function App() {
 }
 
 export default App;
-

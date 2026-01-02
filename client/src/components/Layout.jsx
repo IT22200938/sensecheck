@@ -79,7 +79,7 @@ const Layout = ({ children, title, subtitle, showHome = true }) => {
         <div className="glass py-4">
           <div className="container mx-auto px-4 text-center">
             <p className="text-gray-500 text-xs sm:text-sm">
-              Powered by <span className="font-semibold" style={{ color: 'var(--primary-color)' }}>AURA</span> • Unleash the Future of UI
+              <span className="font-semibold" style={{ color: 'var(--primary-color)' }}>AURA</span> Mind Games 🎮
             </p>
           </div>
         </div>

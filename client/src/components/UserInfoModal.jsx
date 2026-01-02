@@ -100,10 +100,10 @@ const UserInfoModal = ({ isOpen, onClose, onSubmit }) => {
         
         {/* Header */}
         <div className="relative text-center mb-8">
-          <img src={logo} alt="AURA Logo" className="w-16 h-16 mx-auto mb-4" />
-          <h2 className="text-2xl font-bold text-white mb-2">Welcome to AURA</h2>
+          <div className="text-5xl mb-4">🎮</div>
+          <h2 className="text-2xl font-bold text-white mb-2">Ready to Play?</h2>
           <p className="text-sm text-gray-400">
-            Please provide some basic information to begin
+            Quick setup before the games begin!
           </p>
         </div>
 
@@ -200,13 +200,11 @@ const UserInfoModal = ({ isOpen, onClose, onSubmit }) => {
             }}
           >
             <div className="flex items-start gap-3">
-              <svg className="w-5 h-5 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" style={{ color: 'var(--primary-color)' }}>
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-              </svg>
+              <div className="text-xl">🔒</div>
               <div>
-                <h4 className="text-sm font-medium mb-1" style={{ color: 'var(--primary-color)' }}>Privacy Protected</h4>
+                <h4 className="text-sm font-medium mb-1" style={{ color: 'var(--primary-color)' }}>Your Privacy is Safe</h4>
                 <p className="text-xs text-gray-400 leading-relaxed">
-                  Your information is collected anonymously for research purposes only. No personal identifying information is stored.
+                  Just for making the games better! Everything stays anonymous.
                 </p>
               </div>
             </div>
@@ -223,7 +221,7 @@ const UserInfoModal = ({ isOpen, onClose, onSubmit }) => {
           <button
             type="submit"
             disabled={isSubmitting}
-            className="w-full py-4 px-6 rounded-xl font-semibold text-white transition-all duration-300 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            className="w-full py-4 px-6 rounded-xl font-semibold text-black transition-all duration-300 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 group"
             style={{ 
               background: 'linear-gradient(135deg, var(--primary-color) 0%, var(--primary-color-light) 100%)',
               boxShadow: '0 4px 20px var(--primary-color-glow)'
@@ -231,13 +229,13 @@ const UserInfoModal = ({ isOpen, onClose, onSubmit }) => {
           >
             {isSubmitting ? (
               <>
-                <div className="w-5 h-5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
-                <span>Processing...</span>
+                <div className="w-5 h-5 border-2 border-black/20 border-t-black rounded-full animate-spin" />
+                <span>Loading Games...</span>
               </>
             ) : (
               <>
-                <span>Begin Assessment</span>
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <span>Start Playing!</span>
+                <svg className="w-5 h-5 group-hover:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
                 </svg>
               </>

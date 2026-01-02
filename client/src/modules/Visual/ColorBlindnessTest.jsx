@@ -159,7 +159,7 @@ const ColorBlindnessTest = () => {
               </div>
             </div>
 
-            <h3 className="relative text-2xl font-bold mb-6 text-white">Test Complete!</h3>
+            <h3 className="relative text-2xl font-bold mb-6 text-white">Pattern Hunt Complete! 🎨</h3>
 
 
             <button
@@ -170,7 +170,7 @@ const ColorBlindnessTest = () => {
                 boxShadow: '0 4px 20px var(--primary-color-glow)'
               }}
             >
-              Continue to Visual Acuity Test
+              Next Challenge: Eagle Eye!
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
               </svg>
@@ -182,7 +182,7 @@ const ColorBlindnessTest = () => {
   }
 
   return (
-    <Layout title="Color Blindness Test" subtitle="Perception Lab • Chamber 1">
+    <Layout title="Pattern Hunt" subtitle="Find the Hidden Numbers">
       <div className="max-w-3xl mx-auto">
         <ProgressBar
           current={currentPlateIndex + 1}
@@ -200,10 +200,10 @@ const ColorBlindnessTest = () => {
                 border: '1px solid rgba(var(--primary-color-rgb), 0.2)'
               }}
             >
-              <span className="text-sm font-medium" style={{ color: 'var(--primary-color)' }}>Plate {currentPlateIndex + 1} of {ISHIHARA_PLATES.length}</span>
+              <span className="text-sm font-medium" style={{ color: 'var(--primary-color)' }}>Pattern {currentPlateIndex + 1} of {ISHIHARA_PLATES.length}</span>
             </div>
             <p className="text-gray-400">
-              What number do you see in the image below?
+              Can you spot the hidden number in the dots?
             </p>
           </div>
 
@@ -237,7 +237,7 @@ const ColorBlindnessTest = () => {
           <div className="space-y-4">
             <div>
               <label htmlFor="answer-input" className="block text-sm font-medium text-gray-300 mb-2">
-                Enter the number you see:
+                What number did you find?
               </label>
               <input
                 id="answer-input"

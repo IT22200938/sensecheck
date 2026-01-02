@@ -483,8 +483,8 @@ const MotorSkillsGame = () => {
             <div className="inline-flex items-center gap-3 mb-4">
               <img src={logo} alt="AURA Logo" className="w-12 h-12 object-contain" />
               <div className="text-left">
-                <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white">AURA <span style={{ color: 'var(--primary-color)' }}>Reaction Lab</span></h1>
-                <p className="text-xs font-medium tracking-widest uppercase" style={{ color: 'var(--primary-color)' }}>Motor Skills Assessment</p>
+                <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white">AURA <span style={{ color: 'var(--primary-color)' }}>Bubble Pop</span></h1>
+                <p className="text-xs font-medium tracking-widest uppercase" style={{ color: 'var(--primary-color)' }}>Speed Challenge</p>
               </div>
             </div>
           </div>
@@ -501,7 +501,7 @@ const MotorSkillsGame = () => {
                     </svg>
                   </div>
                   <h2 className="text-2xl sm:text-3xl font-bold text-white mb-2">How to Play</h2>
-                  <p className="text-gray-400">Read these instructions carefully before starting</p>
+                  <p className="text-gray-400">Quick rules before you start popping!</p>
                 </div>
 
                 {/* Instructions */}
@@ -521,7 +521,7 @@ const MotorSkillsGame = () => {
                       <span className="text-white font-bold">2</span>
                     </div>
                     <div>
-                      <h3 className="font-semibold text-white mb-1">3 Rounds, Increasing Difficulty</h3>
+                      <h3 className="font-semibold text-white mb-1">3 Waves, Getting Faster!</h3>
                       <p className="text-sm text-gray-400">Complete 3 rounds of 20 seconds each. Speed and complexity increase with each round.</p>
                     </div>
                   </div>
@@ -606,9 +606,9 @@ const MotorSkillsGame = () => {
           {/* Header */}
           <div className="text-center mb-8">
             <h1 className="text-4xl font-black tracking-tight text-white mb-2">
-              AURA <span style={{ color: 'var(--primary-color)' }}>Reaction Lab</span>
+              AURA <span style={{ color: 'var(--primary-color)' }}>Bubble Pop</span>
             </h1>
-            <p className="text-gray-400 text-sm tracking-widest uppercase">Motor Skills Assessment</p>
+            <p className="text-gray-400 text-sm tracking-widest uppercase">You're a Champion! 🏆</p>
           </div>
 
           <div className="max-w-2xl mx-auto">
@@ -625,7 +625,7 @@ const MotorSkillsGame = () => {
                 </div>
               </div>
               
-              <h3 className="relative text-3xl font-bold text-center mb-2 text-white">Assessment Complete!</h3>
+              <h3 className="relative text-3xl font-bold text-center mb-2 text-white">You Did It! 🎉</h3>
               <p className="text-center text-gray-400 mb-8">All rounds finished successfully</p>
               <button
                 onClick={() => navigate('/')}
@@ -671,9 +671,9 @@ const MotorSkillsGame = () => {
         {/* Header */}
         <div className="text-center mb-6">
           <h1 className="text-3xl sm:text-4xl font-black tracking-tight text-white mb-1">
-            AURA <span style={{ color: 'var(--primary-color)' }}>Reaction Lab</span>
+            AURA <span style={{ color: 'var(--primary-color)' }}>Bubble Pop</span>
           </h1>
-          <p className="text-gray-500 text-xs sm:text-sm tracking-widest uppercase">Motor Skills Assessment</p>
+          <p className="text-gray-500 text-xs sm:text-sm tracking-widest uppercase">Speed Challenge</p>
         </div>
 
         <div className="max-w-5xl mx-auto space-y-4 sm:space-y-6">
@@ -692,7 +692,7 @@ const MotorSkillsGame = () => {
                 </div>
                 <div>
                   <h3 className="text-lg sm:text-xl font-bold text-white">
-                    Round {currentRound}
+                    Wave {currentRound}
                   </h3>
                   <p className="text-sm text-gray-400">
                     {isPlaying ? (
@@ -769,7 +769,7 @@ const MotorSkillsGame = () => {
                 <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M5 3l14 9-14 9V3z" />
                 </svg>
-                {currentRound === 1 ? 'Start Assessment' : `Begin Round ${currentRound}`}
+                {currentRound === 1 ? "Let's Go!" : `Start Wave ${currentRound}`}
               </button>
             )}
             
@@ -780,7 +780,7 @@ const MotorSkillsGame = () => {
                   <span className="w-2 h-2 rounded-full animate-bounce" style={{ backgroundColor: 'var(--primary-color)', animationDelay: '150ms' }} />
                   <span className="w-2 h-2 rounded-full animate-bounce" style={{ backgroundColor: 'var(--primary-color)', animationDelay: '300ms' }} />
                 </div>
-                <span className="font-semibold">Preparing Round {currentRound + 1}</span>
+                <span className="font-semibold">Next Wave Coming...</span>
               </div>
             )}
             

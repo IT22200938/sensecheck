@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { getSessionResults, updateModuleCompletion } from '../utils/api';
+import { calculateRank, checkAchievements } from '../utils/gamification';
 
 // Generate or retrieve session ID
 const generateUUID = () => {
@@ -13,6 +14,24 @@ const getSessionId = () => {
     sessionStorage.setItem('sensecheck_session_id', sessionId);
   }
   return sessionId;
+};
+
+// Load persisted gamification data
+const loadGamificationData = () => {
+  try {
+    const saved = sessionStorage.getItem('sensecheck_gamification');
+    if (saved) {
+      return JSON.parse(saved);
+    }
+  } catch (e) {
+    console.error('Failed to load gamification data:', e);
+  }
+  return {
+    totalXP: 0,
+    achievements: [],
+    chamberStats: {},
+    assessmentStartTime: null,
+  };
 };
 
 const useStore = create((set, get) => ({
@@ -45,6 +64,15 @@ const useStore = create((set, get) => ({
     totalRounds: 3,
     interactions: [],
     completed: false,
+    // Gamification stats
+    totalHits: 0,
+    totalMisses: 0,
+    maxCombo: 0,
+    currentCombo: 0,
+    accuracy: 0,
+    hasPerfectRound: false,
+    avgReactionTime: 0,
+    roundStats: [],
   },
   
   // Literacy Test Data
@@ -52,9 +80,138 @@ const useStore = create((set, get) => ({
     responses: [],
     currentQuestion: 0,
     completed: false,
+    // Gamification stats
+    currentStreak: 0,
+    maxStreak: 0,
   },
   
-  // Actions
+  // ===== GAMIFICATION STATE =====
+  gamification: loadGamificationData(),
+  
+  // Pending XP to show in animation
+  pendingXP: null,
+  
+  // Pending achievements to show in popup
+  pendingAchievements: [],
+  
+  // ===== GAMIFICATION ACTIONS =====
+  
+  // Add XP with breakdown for animation
+  addXP: (amount, breakdown = []) => {
+    set((state) => {
+      const newTotalXP = state.gamification.totalXP + amount;
+      const newGamification = {
+        ...state.gamification,
+        totalXP: newTotalXP,
+      };
+      
+      // Persist to sessionStorage
+      sessionStorage.setItem('sensecheck_gamification', JSON.stringify(newGamification));
+      
+      return {
+        gamification: newGamification,
+        pendingXP: { amount, breakdown, newTotal: newTotalXP },
+      };
+    });
+  },
+  
+  // Clear pending XP (after animation)
+  clearPendingXP: () => set({ pendingXP: null }),
+  
+  // Unlock achievement
+  unlockAchievement: (achievement) => {
+    const state = get();
+    const existingIds = state.gamification.achievements.map(a => a.id);
+    
+    if (!existingIds.includes(achievement.id)) {
+      set((state) => {
+        const newAchievements = [...state.gamification.achievements, {
+          ...achievement,
+          unlockedAt: Date.now(),
+        }];
+        
+        const newGamification = {
+          ...state.gamification,
+          achievements: newAchievements,
+          totalXP: state.gamification.totalXP + (achievement.xpBonus || 0),
+        };
+        
+        // Persist to sessionStorage
+        sessionStorage.setItem('sensecheck_gamification', JSON.stringify(newGamification));
+        
+        return {
+          gamification: newGamification,
+          pendingAchievements: [...state.pendingAchievements, achievement],
+        };
+      });
+    }
+  },
+  
+  // Unlock multiple achievements
+  unlockAchievements: (achievements) => {
+    achievements.forEach(achievement => {
+      get().unlockAchievement(achievement);
+    });
+  },
+  
+  // Clear pending achievements (after showing popup)
+  clearPendingAchievements: () => set({ pendingAchievements: [] }),
+  
+  // Update chamber stats
+  updateChamberStats: (chamberId, stats) => {
+    set((state) => {
+      const newChamberStats = {
+        ...state.gamification.chamberStats,
+        [chamberId]: {
+          ...state.gamification.chamberStats[chamberId],
+          ...stats,
+          completedAt: Date.now(),
+        },
+      };
+      
+      const newGamification = {
+        ...state.gamification,
+        chamberStats: newChamberStats,
+      };
+      
+      // Persist to sessionStorage
+      sessionStorage.setItem('sensecheck_gamification', JSON.stringify(newGamification));
+      
+      return { gamification: newGamification };
+    });
+  },
+  
+  // Start assessment timer
+  startAssessment: () => {
+    set((state) => {
+      if (!state.gamification.assessmentStartTime) {
+        const newGamification = {
+          ...state.gamification,
+          assessmentStartTime: Date.now(),
+        };
+        sessionStorage.setItem('sensecheck_gamification', JSON.stringify(newGamification));
+        return { gamification: newGamification };
+      }
+      return {};
+    });
+  },
+  
+  // Get total assessment time
+  getAssessmentTime: () => {
+    const state = get();
+    if (state.gamification.assessmentStartTime) {
+      return Date.now() - state.gamification.assessmentStartTime;
+    }
+    return 0;
+  },
+  
+  // Get current rank
+  getCurrentRank: () => {
+    const state = get();
+    return calculateRank(state.gamification.totalXP);
+  },
+  
+  // ===== ORIGINAL ACTIONS =====
   setCurrentModule: (module) => set({
     currentModule: module,
     moduleStartTime: Date.now(),
@@ -175,6 +332,52 @@ const useStore = create((set, get) => ({
     },
   })),
   
+  // Record bubble hit (for combo system)
+  recordBubbleHit: (reactionTime) => set((state) => {
+    const newCombo = state.motorSkillsData.currentCombo + 1;
+    const newMaxCombo = Math.max(state.motorSkillsData.maxCombo, newCombo);
+    const newTotalHits = state.motorSkillsData.totalHits + 1;
+    
+    return {
+      motorSkillsData: {
+        ...state.motorSkillsData,
+        totalHits: newTotalHits,
+        currentCombo: newCombo,
+        maxCombo: newMaxCombo,
+      },
+    };
+  }),
+  
+  // Record bubble miss (breaks combo)
+  recordBubbleMiss: () => set((state) => ({
+    motorSkillsData: {
+      ...state.motorSkillsData,
+      totalMisses: state.motorSkillsData.totalMisses + 1,
+      currentCombo: 0, // Reset combo on miss
+    },
+  })),
+  
+  // Complete a round with stats
+  completeMotorRound: (roundStats) => set((state) => {
+    const newRoundStats = [...state.motorSkillsData.roundStats, roundStats];
+    const totalHits = newRoundStats.reduce((sum, r) => sum + r.hits, 0);
+    const totalMisses = newRoundStats.reduce((sum, r) => sum + r.misses, 0);
+    const accuracy = totalHits + totalMisses > 0 
+      ? Math.round((totalHits / (totalHits + totalMisses)) * 100) 
+      : 0;
+    const hasPerfectRound = state.motorSkillsData.hasPerfectRound || roundStats.misses === 0;
+    
+    return {
+      motorSkillsData: {
+        ...state.motorSkillsData,
+        roundStats: newRoundStats,
+        accuracy,
+        hasPerfectRound,
+        currentCombo: 0, // Reset combo between rounds
+      },
+    };
+  }),
+  
   completeMotorSkillsTest: () => set((state) => ({
     motorSkillsData: {
       ...state.motorSkillsData,
@@ -183,13 +386,21 @@ const useStore = create((set, get) => ({
   })),
   
   // Literacy Actions
-  recordLiteracyResponse: (responseData) => set((state) => ({
-    literacyResults: {
-      ...state.literacyResults,
-      responses: [...state.literacyResults.responses, responseData],
-      currentQuestion: state.literacyResults.currentQuestion + 1,
-    },
-  })),
+  recordLiteracyResponse: (responseData) => set((state) => {
+    const isCorrect = responseData.isCorrect;
+    const newStreak = isCorrect ? state.literacyResults.currentStreak + 1 : 0;
+    const newMaxStreak = Math.max(state.literacyResults.maxStreak, newStreak);
+    
+    return {
+      literacyResults: {
+        ...state.literacyResults,
+        responses: [...state.literacyResults.responses, responseData],
+        currentQuestion: state.literacyResults.currentQuestion + 1,
+        currentStreak: newStreak,
+        maxStreak: newMaxStreak,
+      },
+    };
+  }),
   
   completeLiteracyTest: () => set((state) => ({
     literacyResults: {
@@ -199,15 +410,24 @@ const useStore = create((set, get) => ({
   })),
   
   // Reset (for testing)
-  resetStore: () => set({
-    currentModule: null,
-    completedModules: [],
-    colorBlindnessResults: { plates: [], currentPlate: 0, completed: false },
-    visualAcuityResults: { attempts: [], currentSize: 80, completed: false },
-    motorSkillsData: { currentRound: 1, totalRounds: 3, interactions: [], completed: false },
-    literacyResults: { responses: [], currentQuestion: 0, completed: false },
-  }),
+  resetStore: () => {
+    sessionStorage.removeItem('sensecheck_gamification');
+    set({
+      currentModule: null,
+      completedModules: [],
+      colorBlindnessResults: { plates: [], currentPlate: 0, completed: false },
+      visualAcuityResults: { attempts: [], currentSize: 80, completed: false },
+      motorSkillsData: { 
+        currentRound: 1, totalRounds: 3, interactions: [], completed: false,
+        totalHits: 0, totalMisses: 0, maxCombo: 0, currentCombo: 0, accuracy: 0,
+        hasPerfectRound: false, avgReactionTime: 0, roundStats: [],
+      },
+      literacyResults: { responses: [], currentQuestion: 0, completed: false, currentStreak: 0, maxStreak: 0 },
+      gamification: { totalXP: 0, achievements: [], chamberStats: {}, assessmentStartTime: null },
+      pendingXP: null,
+      pendingAchievements: [],
+    });
+  },
 }));
 
 export default useStore;
-

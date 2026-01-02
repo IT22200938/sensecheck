@@ -176,6 +176,7 @@ export const updateModuleCompletion = async (req, res) => {
       });
     }
 
+    // Use upsert to create session if it doesn't exist
     const session = await Session.findOneAndUpdate(
       { sessionId },
       { 
@@ -184,17 +185,15 @@ export const updateModuleCompletion = async (req, res) => {
             moduleName, 
             completedAt: new Date() 
           } 
-        } 
+        },
+        $setOnInsert: {
+          participantId: `participant_${sessionId.split('_')[1] || Date.now()}`,
+          createdAt: new Date(),
+          status: 'active',
+        }
       },
-      { new: true }
+      { new: true, upsert: true }
     );
-
-    if (!session) {
-      return res.status(404).json({ 
-        success: false, 
-        error: 'Session not found' 
-      });
-    }
 
     logger.info(`Module completed: ${moduleName} for session ${sessionId}`);
 

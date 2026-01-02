@@ -207,17 +207,16 @@ const LiteracyQuiz = () => {
               </div>
             </div>
             
-            <h3 className="relative text-2xl font-bold mb-6 text-white">Quiz Complete!</h3>
+            <h3 className="relative text-2xl font-bold mb-6 text-white">Trivia Complete! 🧠</h3>
 
             <button
-              onClick={() => navigate('/complete')}
               className="relative w-full py-4 px-6 rounded-xl font-semibold text-white transition-all duration-300 shadow-lg"
               style={{ 
                 background: 'linear-gradient(135deg, var(--primary-color) 0%, var(--primary-color-light) 100%)',
                 boxShadow: '0 4px 20px var(--primary-color-glow)'
               }}
             >
-              Finish Assessment
+              See My Results! 🏆
             </button>
           </div>
         </div>
@@ -226,7 +225,7 @@ const LiteracyQuiz = () => {
   }
 
   return (
-    <Layout title="Computer Literacy Quiz" subtitle="Knowledge Console">
+    <Layout title="Quick Think!" subtitle="Digital Trivia Time 🧠">
       <div className="max-w-3xl mx-auto">
         <ProgressBar
           current={currentQuestionIndex + 1}
@@ -249,7 +248,7 @@ const LiteracyQuiz = () => {
                 {currentQuestion.category}
               </span>
               <span className="text-sm text-gray-500">
-                Question {currentQuestionIndex + 1} of {totalQuestions}
+                Q{currentQuestionIndex + 1} of {totalQuestions}
               </span>
             </div>
             <h3 className="text-xl sm:text-2xl font-bold text-white">{currentQuestion.question}</h3>
@@ -306,9 +305,9 @@ const LiteracyQuiz = () => {
               boxShadow: '0 4px 20px var(--primary-color-glow)'
             }}
           >
-            {isLastQuestion ? 'Finish Quiz' : (
+            {isLastQuestion ? 'Final Answer!' : (
               <>
-                Next Question
+                Lock It In!
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
                 </svg>
@@ -332,11 +331,11 @@ const LiteracyQuiz = () => {
               </svg>
             </div>
             <div>
-              <h4 className="font-semibold text-white mb-2">Instructions</h4>
+              <h4 className="font-semibold text-white mb-2">Tips</h4>
               <ul className="text-sm text-gray-400 space-y-1">
-                <li>• Select the best answer for each question</li>
-                <li>• Take your time to read each option carefully</li>
-                <li>• Questions cover icons, terminology, navigation, and security</li>
+                <li>• Pick the best answer you think fits</li>
+                <li>• No rush - read all the options</li>
+                <li>• Topics: Icons, Tech Terms, Navigation & Security</li>
               </ul>
             </div>
           </div>

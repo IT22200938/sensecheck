@@ -1,10 +1,51 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Layout from '../../components/Layout';
 import useStore from '../../state/store';
 import useInteractionTracking from '../../hooks/useInteractionTracking';
 import { calculateVisualAcuityMetrics } from '../../utils/visualAcuityCalculations';
 import { saveVisionResults } from '../../utils/api';
+
+/**
+ * Calculate screen-adaptive sizes for visual acuity test
+ * Level 7 = 20/20 vision threshold for this specific screen
+ */
+const calculateAdaptiveSizes = () => {
+  const dpr = window.devicePixelRatio || 1;
+  const screenWidth = window.screen.width * dpr;
+  const screenHeight = window.screen.height * dpr;
+  
+  // Estimate screen diagonal based on resolution
+  const totalPixels = screenWidth * screenHeight;
+  let estimatedDiagonal;
+  
+  if (totalPixels > 8000000) estimatedDiagonal = 27;      // 4K+
+  else if (totalPixels > 3500000) estimatedDiagonal = 25; // 1440p
+  else if (totalPixels > 2000000) estimatedDiagonal = 24; // 1080p
+  else estimatedDiagonal = 15;                             // Mobile/small
+  
+  // Calculate PPI
+  const diagonalPixels = Math.sqrt(screenWidth * screenWidth + screenHeight * screenHeight);
+  const ppi = diagonalPixels / estimatedDiagonal;
+  
+  // 20/20 vision: 5 arc minutes at 57cm = ~0.83mm
+  const viewingDistanceMM = 570;
+  const arcMinutes = 5;
+  const angleRadians = (arcMinutes / 60) * (Math.PI / 180);
+  const physicalSizeMM = 2 * viewingDistanceMM * Math.tan(angleRadians / 2);
+  const twentyTwentyPixels = Math.round(physicalSizeMM * (ppi / 25.4));
+  
+  // 7 levels: Level 1 = 4x threshold, Level 7 = threshold
+  const level1Size = Math.max(80, twentyTwentyPixels * 4);
+  const level7Size = Math.max(12, twentyTwentyPixels);
+  
+  const sizes = [];
+  for (let i = 0; i < 7; i++) {
+    sizes.push(Math.round(level1Size - (level1Size - level7Size) * (i / 6)));
+  }
+  
+  return { sizes, twentyTwentyPixels, ppi: Math.round(ppi) };
+};
 
 const VisualAcuityTest = () => {
   const navigate = useNavigate();
@@ -17,10 +58,14 @@ const VisualAcuityTest = () => {
   } = useStore();
   const { trackEvent, trackClick } = useInteractionTracking('visualAcuity', true);
 
+  // Calculate adaptive sizes
+  const screenCalibration = useMemo(() => calculateAdaptiveSizes(), []);
+  const { sizes: levelSizes, twentyTwentyPixels } = screenCalibration;
+
   // Load initial state from sessionStorage for persistence
-  const getInitialSize = () => {
-    const saved = sessionStorage.getItem('sensecheck_visualacuity_size');
-    return saved ? parseInt(saved, 10) : 80;
+  const getInitialLevel = () => {
+    const saved = sessionStorage.getItem('sensecheck_visualacuity_level');
+    return saved ? parseInt(saved, 10) : 1;
   };
 
   const getInitialComplete = () => {
@@ -32,14 +77,17 @@ const VisualAcuityTest = () => {
     return saved ? JSON.parse(saved) : null;
   };
 
-  const [currentSize, setCurrentSize] = useState(getInitialSize);
+  const [currentLevel, setCurrentLevel] = useState(getInitialLevel);
   const [currentNumber, setCurrentNumber] = useState(null);
   const [userAnswer, setUserAnswer] = useState('');
   const [attemptNumber, setAttemptNumber] = useState(1);
   const [attemptStartTime, setAttemptStartTime] = useState(Date.now());
   const [isComplete, setIsComplete] = useState(getInitialComplete);
   const [finalResults, setFinalResults] = useState(getSavedResults);
-  const [lastCorrectSize, setLastCorrectSize] = useState(getInitialSize);
+  const [lastCorrectLevel, setLastCorrectLevel] = useState(getInitialLevel);
+  
+  // Get current size based on level
+  const currentSize = levelSizes[currentLevel - 1];
 
   // Check if test was already completed in store
   const storeCompleted = useStore((state) => state.visualAcuityResults.completed);
@@ -59,10 +107,10 @@ const VisualAcuityTest = () => {
       setCurrentNumber(number);
       setAttemptStartTime(Date.now());
       trackEvent('number_shown', {
-        metadata: { number, size: currentSize, attempt: attemptNumber },
+        metadata: { number, size: currentSize, level: currentLevel, attempt: attemptNumber },
       });
     }
-  }, [currentSize, attemptNumber, trackEvent, isComplete]);
+  }, [currentLevel, attemptNumber, trackEvent, isComplete, currentSize]);
 
   const handleSubmit = async () => {
     if (!userAnswer.trim()) return;
@@ -71,28 +119,30 @@ const VisualAcuityTest = () => {
     const isCorrect = parseInt(userAnswer) === currentNumber;
 
     const attemptData = {
+      level: currentLevel,
       size: currentSize,
       number: currentNumber,
       userAnswer: parseInt(userAnswer),
       isCorrect,
       responseTime,
       attemptNumber,
+      twentyTwentyThreshold: twentyTwentyPixels,
     };
 
     recordVisualAcuityAttempt(attemptData);
     trackEvent('attempt_submitted', { metadata: attemptData });
 
     if (isCorrect) {
-      setLastCorrectSize(currentSize);
-      const newSize = currentSize - 10;
+      setLastCorrectLevel(currentLevel);
       
-      if (newSize < 20) {
-        await completeTest();
+      if (currentLevel >= 7) {
+        // Reached 20/20 level!
+        await completeTest(currentLevel);
       } else {
-        setCurrentSize(newSize);
-        setVisualAcuitySize(newSize);
-        // Save progress to sessionStorage
-        sessionStorage.setItem('sensecheck_visualacuity_size', newSize.toString());
+        const nextLevel = currentLevel + 1;
+        setCurrentLevel(nextLevel);
+        setVisualAcuitySize(levelSizes[nextLevel - 1]);
+        sessionStorage.setItem('sensecheck_visualacuity_level', nextLevel.toString());
         setUserAnswer('');
         setAttemptNumber(1);
       }
@@ -101,20 +151,32 @@ const VisualAcuityTest = () => {
         setUserAnswer('');
         setAttemptNumber(2);
       } else {
-        await completeTest();
+        await completeTest(lastCorrectLevel);
       }
     }
   };
 
-  const completeTest = async () => {
+  const completeTest = async (finalLevel) => {
     completeVisualAcuityTest();
     
     const allAttempts = useStore.getState().visualAcuityResults.attempts;
-    const metrics = calculateVisualAcuityMetrics(lastCorrectSize);
+    const finalSize = levelSizes[finalLevel - 1];
+    const metrics = calculateVisualAcuityMetrics(finalSize);
+    
+    // Calculate vision rating
+    const visionRating = finalLevel >= 7 ? '20/20 (Perfect)' 
+      : finalLevel >= 5 ? '20/25 (Near Perfect)'
+      : finalLevel >= 3 ? '20/40 (Normal)'
+      : '20/60+ (Below Average)';
     
     const resultsData = {
       attempts: allAttempts,
-      finalResolvedSize: lastCorrectSize,
+      finalLevel,
+      finalResolvedSize: finalSize,
+      twentyTwentyThreshold: twentyTwentyPixels,
+      screenCalibration,
+      visionRating,
+      isPerfectVision: finalLevel >= 7,
       ...metrics,
     };
 
@@ -131,11 +193,9 @@ const VisualAcuityTest = () => {
       console.error('Failed to save results:', error);
     }
 
-    // Save completion state to sessionStorage
     sessionStorage.setItem('sensecheck_visualacuity_complete', 'true');
     sessionStorage.setItem('sensecheck_visualacuity_results', JSON.stringify(resultsData));
-    // Clear progress since test is complete
-    sessionStorage.removeItem('sensecheck_visualacuity_size');
+    sessionStorage.removeItem('sensecheck_visualacuity_level');
 
     setIsComplete(true);
   };
@@ -144,13 +204,12 @@ const VisualAcuityTest = () => {
     navigate('/');
   };
 
-  // Calculate progress (80 -> 20, so 7 steps: 80, 70, 60, 50, 40, 30, 20)
-  const progressSteps = 7;
-  const currentStep = Math.max(1, Math.ceil((80 - currentSize) / 10) + 1);
+  // Calculate progress
+  const progressPercent = Math.round(((currentLevel - 1) / 6) * 100);
 
   if (isComplete && finalResults) {
     return (
-      <Layout title="Visual Acuity Test Complete" subtitle="Perception Lab">
+      <Layout title="Eagle Eye Complete" subtitle="Nice Focus! 🦅">
         <div className="max-w-2xl mx-auto">
           <div className="rounded-2xl bg-gray-900/70 backdrop-blur-xl border border-gray-800 p-8 shadow-xl text-center relative overflow-hidden">
             {/* Success glow */}
@@ -171,7 +230,7 @@ const VisualAcuityTest = () => {
               </div>
             </div>
             
-            <h3 className="relative text-2xl font-bold mb-6 text-white">Test Complete!</h3>
+            <h3 className="relative text-2xl font-bold mb-6 text-white">Eagle Eye Complete! 🦅</h3>
 
             <button
               onClick={handleContinue}
@@ -181,7 +240,7 @@ const VisualAcuityTest = () => {
                 boxShadow: '0 4px 20px var(--primary-color-glow)'
               }}
             >
-              Return to Home
+              Back to Home
             </button>
           </div>
         </div>
@@ -190,22 +249,38 @@ const VisualAcuityTest = () => {
   }
 
   return (
-    <Layout title="Visual Acuity Test" subtitle="Perception Lab • Chamber 2">
+    <Layout title="Eagle Eye Challenge" subtitle="How Small Can You Go?">
       <div className="max-w-3xl mx-auto">
         {/* Progress Indicator */}
         <div className="mb-6">
           <div className="flex justify-between text-sm mb-2">
-            <span className="text-gray-400">Size Progress</span>
-            <span className="font-medium" style={{ color: 'var(--primary-color)' }}>{currentSize}px</span>
+            <span className="text-gray-400">Focus Level</span>
+            <span className="font-medium" style={{ color: 'var(--primary-color)' }}>
+              Level {currentLevel}/7 {currentLevel === 7 && '(20/20)'}
+            </span>
           </div>
           <div className="w-full bg-gray-800 rounded-full h-2 overflow-hidden">
             <div
               className="h-full rounded-full transition-all duration-500"
               style={{ 
-                width: `${((80 - currentSize) / 60) * 100}%`,
+                width: `${progressPercent}%`,
                 background: 'linear-gradient(90deg, var(--primary-color-dark) 0%, var(--primary-color) 50%, var(--primary-color-light) 100%)'
               }}
             />
+          </div>
+          {/* Level indicators */}
+          <div className="flex justify-between mt-2">
+            {[1, 2, 3, 4, 5, 6, 7].map((level) => (
+              <div 
+                key={level}
+                className={`w-2 h-2 rounded-full transition-all duration-300 ${
+                  currentLevel >= level ? 'scale-100' : 'scale-75 opacity-30'
+                }`}
+                style={{ 
+                  backgroundColor: currentLevel >= level ? 'var(--primary-color)' : '#374151'
+                }}
+              />
+            ))}
           </div>
         </div>
 
@@ -214,8 +289,10 @@ const VisualAcuityTest = () => {
           <div className="text-center mb-6">
             <h3 className={`text-lg font-semibold ${attemptNumber === 2 ? 'text-amber-400' : 'text-gray-300'}`}>
               {attemptNumber === 1 
-                ? 'What number do you see in the circle below?' 
-                : '⚠️ Incorrect! Try again (Last chance)'}
+                ? currentLevel === 7 
+                  ? '🎯 Final level - 20/20 vision test!'
+                  : 'Spot the shrinking number!' 
+                : '⚠️ Oops! One more try!'}
             </h3>
           </div>
 
@@ -237,7 +314,7 @@ const VisualAcuityTest = () => {
           <div className="space-y-4">
             <div>
               <label htmlFor="number-input" className="block text-sm font-medium text-gray-300 mb-2">
-                Enter the number you see:
+                What number is it?
               </label>
               <input
                 id="number-input"
