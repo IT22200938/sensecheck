@@ -5,10 +5,18 @@ import {
   getSessionResults,
   createSession,
   updateModuleCompletion,
-  updateSessionPerformance
+  updateSessionPerformance,
+  checkUserIdExists,
+  suggestUserId
 } from '../controllers/resultsController.js';
 
 const router = express.Router();
+
+// GET /api/results/check-userid/:userId - Check if userId already exists
+router.get('/check-userid/:userId', checkUserIdExists);
+
+// GET /api/results/suggest-userid - Get a unique userId suggestion
+router.get('/suggest-userid', suggestUserId);
 
 // POST /api/results/session - Create or update session
 router.post('/session', createSession);

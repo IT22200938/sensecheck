@@ -8,8 +8,8 @@ import mongoose from 'mongoose';
  * - Movement trajectory analysis
  * - Velocity/acceleration profiles
  * - Tremor detection
- * - Spectral analysis
- * - Sequence models (LSTM/Transformer)
+ * - Kinematics computation
+ * - Fitts' Law metrics
  */
 
 const MAX_TRACE_SAMPLES_PER_BUCKET = 5000;
@@ -24,7 +24,7 @@ const pointerSampleSchema = new mongoose.Schema({
   tms: { 
     type: Number, 
     required: true 
-  }, // ms since round start
+  }, // ms since epoch (absolute timestamp)
   x: { 
     type: Number, 
     required: true 
@@ -40,10 +40,8 @@ const pointerSampleSchema = new mongoose.Schema({
   pointerType: { 
     type: String, 
     enum: ['mouse', 'touch', 'pen', 'unknown'], 
-    default: 'unknown' 
+    default: 'mouse' 
   },
-  pointerId: { type: Number }, // important for touch
-  pressure: { type: Number },  // optional
 }, { _id: false });
 
 const motorPointerTraceBucketSchema = new mongoose.Schema({
@@ -52,6 +50,10 @@ const motorPointerTraceBucketSchema = new mongoose.Schema({
     required: true, 
     index: true,
     ref: 'Session',
+  },
+  userId: {
+    type: String,
+    index: true,
   },
   
   bucketNumber: { 
@@ -112,7 +114,7 @@ motorPointerTraceBucketSchema.pre('save', async function(next) {
 });
 
 // Static method to add pointer samples to appropriate bucket
-motorPointerTraceBucketSchema.statics.addSamples = async function(sessionId, samplesArray) {
+motorPointerTraceBucketSchema.statics.addSamples = async function(sessionId, userId, samplesArray) {
   if (!Array.isArray(samplesArray) || samplesArray.length === 0) {
     throw new Error('samplesArray must be a non-empty array');
   }
@@ -125,6 +127,8 @@ motorPointerTraceBucketSchema.statics.addSamples = async function(sessionId, sam
     throw new Error(`Session with sessionId "${sessionId}" does not exist.`);
   }
   
+  console.log(`📍 addSamples called: sessionId=${sessionId}, userId=${userId}, samples=${samplesArray.length}`);
+  
   // Find current active bucket
   let bucket = await this.findOne({
     sessionId,
@@ -135,10 +139,14 @@ motorPointerTraceBucketSchema.statics.addSamples = async function(sessionId, sam
   if (!bucket) {
     bucket = await this.create({
       sessionId,
+      userId,
       bucketNumber: 1,
       count: 0,
       samples: [],
     });
+  } else if (userId && !bucket.userId) {
+    // Update userId if not set
+    bucket.userId = userId;
   }
   
   // Add samples, creating new buckets as needed
@@ -151,6 +159,7 @@ motorPointerTraceBucketSchema.statics.addSamples = async function(sessionId, sam
       // Create new bucket
       bucket = await this.create({
         sessionId,
+        userId,
         bucketNumber: bucket.bucketNumber + 1,
         count: 0,
         samples: [],
@@ -169,6 +178,9 @@ motorPointerTraceBucketSchema.statics.addSamples = async function(sessionId, sam
   }
   
   await bucket.save();
+  
+  console.log(`   ✅ Stored ${samplesArray.length} samples in bucket ${bucket.bucketNumber}`);
+  
   return bucket;
 };
 
@@ -199,5 +211,4 @@ motorPointerTraceBucketSchema.statics.getSamplesInRange = async function(session
 const MotorPointerTraceBucket = mongoose.model('MotorPointerTraceBucket', motorPointerTraceBucketSchema);
 
 export default MotorPointerTraceBucket;
-
 

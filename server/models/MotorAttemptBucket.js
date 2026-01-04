@@ -104,6 +104,10 @@ const motorAttemptBucketSchema = new mongoose.Schema({
     index: true,
     ref: 'Session',
   },
+  userId: {
+    type: String,
+    index: true,
+  },
   
   bucketNumber: { 
     type: Number, 
@@ -153,7 +157,7 @@ motorAttemptBucketSchema.pre('save', async function(next) {
 });
 
 // Static method to add attempts to appropriate bucket
-motorAttemptBucketSchema.statics.addAttempts = async function(sessionId, attemptsArray) {
+motorAttemptBucketSchema.statics.addAttempts = async function(sessionId, userId, attemptsArray) {
   if (!Array.isArray(attemptsArray) || attemptsArray.length === 0) {
     throw new Error('attemptsArray must be a non-empty array');
   }
@@ -166,13 +170,9 @@ motorAttemptBucketSchema.statics.addAttempts = async function(sessionId, attempt
     throw new Error(`Session with sessionId "${sessionId}" does not exist.`);
   }
   
-  // Get pointer samples for feature extraction
-  const MotorPointerTraceBucket = mongoose.model('MotorPointerTraceBucket');
-  const allSamples = await MotorPointerTraceBucket.getSessionSamples(sessionId);
+  console.log(`📊 addAttempts called: sessionId=${sessionId}, userId=${userId}, attempts=${attemptsArray.length}`);
   
-  console.log(`\n📊 Processing ${attemptsArray.length} attempts with ${allSamples.length} pointer samples`);
-  
-  // Debug: Show first attempt structure
+  // Debug: Show first attempt structure with timing/spatial data
   if (attemptsArray.length > 0) {
     const sample = attemptsArray[0];
     console.log(`   Sample attempt structure:`, {
@@ -182,26 +182,30 @@ motorAttemptBucketSchema.statics.addAttempts = async function(sessionId, attempt
       spawnTms: sample.spawnTms,
       clickTms: sample.click?.tms,
       hasTarget: !!sample.target,
-      targetCoords: sample.target ? `(${sample.target.x.toFixed(3)}, ${sample.target.y.toFixed(3)})` : 'N/A'
+      targetCoords: sample.target ? `(${sample.target.x.toFixed(3)}, ${sample.target.y.toFixed(3)})` : 'N/A',
+      // Timing and spatial from frontend
+      timingFromFrontend: sample.timing,
+      spatialFromFrontend: sample.spatial,
     });
   }
   
-  // Debug: Show pointer sample time range
-  if (allSamples.length > 0) {
-    const sortedSamples = [...allSamples].sort((a, b) => a.tms - b.tms);
-    console.log(`   Pointer sample time range: ${sortedSamples[0].tms} to ${sortedSamples[sortedSamples.length-1].tms}`);
-  }
+  // Get pointer samples for kinematics/Fitts computation
+  const MotorPointerTraceBucket = mongoose.model('MotorPointerTraceBucket');
+  const allSamples = await MotorPointerTraceBucket.getSessionSamples(sessionId);
   
-  // Import feature extraction
+  console.log(`   📍 Pointer samples available: ${allSamples.length}`);
+  
+  // Import feature extraction utility
   const { extractAttemptFeatures } = await import('../utils/featureExtraction.js');
   
-  // Enrich attempts with computed features
+  // Enrich attempts with kinematics and Fitts' Law features
   const enrichedAttempts = attemptsArray.map((attempt, idx) => {
     // Get previous click time for inter-tap interval
     const prevClickTms = idx > 0 ? attemptsArray[idx - 1].click?.tms : null;
     
-    // Extract features if we have pointer data and the attempt was clicked
+    // Try to compute full kinematics from pointer samples
     let features = {};
+    
     if (allSamples.length > 0 && attempt.click?.clicked) {
       try {
         features = extractAttemptFeatures({
@@ -211,28 +215,29 @@ motorAttemptBucketSchema.statics.addAttempts = async function(sessionId, attempt
           target: attempt.target,
           prevClickTms,
         });
+        
+        if (idx === 0) {
+          console.log(`   ✅ Full kinematics computed for first attempt:`, {
+            reactionTimeMs: features.timing?.reactionTimeMs,
+            movementTimeMs: features.timing?.movementTimeMs,
+            meanSpeed: features.kinematics?.meanSpeed?.toFixed(4),
+            peakSpeed: features.kinematics?.peakSpeed?.toFixed(4),
+            jerkRMS: features.kinematics?.jerkRMS?.toFixed(4),
+            throughput: features.fitts?.throughput?.toFixed(4),
+          });
+        }
       } catch (err) {
-        console.error(`Error extracting features for attempt ${attempt.attemptId}:`, err.message);
-        // Continue with empty features if extraction fails
-        features = {
-          timing: {},
-          spatial: {},
-          kinematics: {},
-          fitts: {},
-        };
+        console.error(`⚠️ Error extracting features for attempt ${attempt.attemptId}:`, err.message);
+        // Fall back to basic features
+        features = buildBasicFeatures(attempt, prevClickTms);
       }
     } else {
-      // Missed bubble or no pointer data
-      features = {
-        timing: {
-          reactionTimeMs: null,
-          movementTimeMs: null,
-          interTapMs: prevClickTms ? (attempt.despawnTms || Date.now()) - prevClickTms : null,
-        },
-        spatial: {},
-        kinematics: {},
-        fitts: {},
-      };
+      // No pointer samples or missed bubble - use basic features
+      features = buildBasicFeatures(attempt, prevClickTms);
+      
+      if (idx === 0) {
+        console.log(`   ⚠️ Using basic features (no pointer samples or missed bubble)`);
+      }
     }
     
     // Merge attempt with computed features
@@ -241,6 +246,37 @@ motorAttemptBucketSchema.statics.addAttempts = async function(sessionId, attempt
       ...features,
     };
   });
+  
+  // Helper function to build basic features when pointer samples aren't available
+  function buildBasicFeatures(attempt, prevClickTms) {
+    let reactionTimeMs = null;
+    if (attempt.timing?.reactionTimeMs !== undefined && attempt.timing?.reactionTimeMs !== null) {
+      reactionTimeMs = attempt.timing.reactionTimeMs;
+    } else if (attempt.click?.clicked && attempt.click?.tms && attempt.spawnTms) {
+      reactionTimeMs = attempt.click.tms - attempt.spawnTms;
+    }
+    
+    const interTapMs = (prevClickTms && attempt.click?.tms) 
+      ? attempt.click.tms - prevClickTms 
+      : null;
+    
+    const errorDistNorm = attempt.spatial?.errorDistNorm !== undefined && attempt.spatial?.errorDistNorm !== null
+      ? attempt.spatial.errorDistNorm
+      : null;
+    
+    return {
+      timing: {
+        reactionTimeMs,
+        movementTimeMs: null,
+        interTapMs,
+      },
+      spatial: {
+        errorDistNorm,
+      },
+      kinematics: {},
+      fitts: {},
+    };
+  }
   
   // Find current active bucket
   let bucket = await this.findOne({
@@ -252,10 +288,14 @@ motorAttemptBucketSchema.statics.addAttempts = async function(sessionId, attempt
   if (!bucket) {
     bucket = await this.create({
       sessionId,
+      userId,
       bucketNumber: 1,
       count: 0,
       attempts: [],
     });
+  } else if (userId && !bucket.userId) {
+    // Update userId if not set
+    bucket.userId = userId;
   }
   
   // Add enriched attempts, creating new buckets as needed
@@ -268,6 +308,7 @@ motorAttemptBucketSchema.statics.addAttempts = async function(sessionId, attempt
       // Create new bucket
       bucket = await this.create({
         sessionId,
+        userId,
         bucketNumber: bucket.bucketNumber + 1,
         count: 0,
         attempts: [],

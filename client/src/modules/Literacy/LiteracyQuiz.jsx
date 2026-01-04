@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import Layout from '../../components/Layout';
 import ProgressBar from '../../components/ProgressBar';
 import useStore from '../../state/store';
-import useInteractionTracking from '../../hooks/useInteractionTracking';
 import {
   LITERACY_QUESTIONS,
   calculateLiteracyScore,
@@ -15,7 +14,6 @@ const LiteracyQuiz = () => {
   const navigate = useNavigate();
   const sessionId = useStore((state) => state.sessionId);
   const { recordLiteracyResponse, completeLiteracyTest, completeModule } = useStore();
-  const { trackEvent, trackClick, trackHover, trackFocus } = useInteractionTracking('literacy', true);
 
   // Load initial state from sessionStorage for persistence
   const getInitialQuestionIndex = () => {
@@ -59,20 +57,11 @@ const LiteracyQuiz = () => {
       setQuestionStartTime(Date.now());
       setFocusShiftCount(0);
       setHoverEvents([]);
-      trackEvent('question_shown', {
-        metadata: {
-          questionId: currentQuestion.id,
-          category: currentQuestion.category,
-        },
-      });
     }
-  }, [currentQuestionIndex, currentQuestion, trackEvent, isComplete]);
+  }, [currentQuestionIndex, currentQuestion, isComplete]);
 
-  const handleOptionClick = (option, event) => {
+  const handleOptionClick = (option) => {
     setSelectedAnswer(option);
-    trackClick(event, {
-      metadata: { questionId: currentQuestion.id, selectedOption: option },
-    });
   };
 
   const handleOptionHover = (option, isEntering) => {
@@ -85,22 +74,12 @@ const LiteracyQuiz = () => {
           ...prev,
           { option, duration, timestamp: Date.now() },
         ]);
-        trackHover(new MouseEvent('hover'), {
-          metadata: {
-            questionId: currentQuestion.id,
-            option,
-            duration,
-          },
-        });
       }
     }
   };
 
-  const handleFocus = (event) => {
+  const handleFocus = () => {
     setFocusShiftCount((prev) => prev + 1);
-    trackFocus(event, {
-      metadata: { questionId: currentQuestion.id, count: focusShiftCount + 1 },
-    });
   };
 
   const handleSubmit = async () => {
@@ -121,12 +100,6 @@ const LiteracyQuiz = () => {
     };
 
     recordLiteracyResponse(responseData);
-    trackEvent('question_submitted', {
-      metadata: {
-        ...responseData,
-        category: currentQuestion.category,
-      },
-    });
 
     if (isLastQuestion) {
       await completeQuiz();
@@ -143,26 +116,15 @@ const LiteracyQuiz = () => {
     completeLiteracyTest();
     
     const allResponses = useStore.getState().literacyResults.responses;
-    const score = calculateLiteracyScore(allResponses);
+    const scoreData = calculateLiteracyScore(allResponses);
     const categoryScores = calculateCategoryScores(allResponses);
-
-    const totalTime = allResponses.reduce((sum, r) => sum + r.responseTime, 0);
-    const totalFocusShifts = allResponses.reduce((sum, r) => sum + r.focusShifts, 0);
-    const totalHoverEvents = allResponses.reduce(
-      (sum, r) => sum + r.hoverEvents.length,
-      0
-    );
 
     const resultsData = {
       sessionId,
       responses: allResponses,
-      score,
-      metrics: {
-        totalTime,
-        averageResponseTime: Math.round(totalTime / allResponses.length),
-        totalFocusShifts,
-        totalHoverEvents,
-      },
+      score: scoreData.score, // Decimal score (0.0 - 1.0)
+      correctAnswers: scoreData.correctAnswers,
+      totalQuestions: scoreData.totalQuestions,
       categoryScores,
     };
 
@@ -259,7 +221,7 @@ const LiteracyQuiz = () => {
             {currentQuestion.options.map((option, index) => (
               <button
                 key={option}
-                onClick={(e) => handleOptionClick(option, e)}
+                onClick={() => handleOptionClick(option)}
                 onFocus={handleFocus}
                 onMouseEnter={() => handleOptionHover(option, true)}
                 onMouseLeave={() => handleOptionHover(option, false)}
@@ -335,7 +297,7 @@ const LiteracyQuiz = () => {
               <ul className="text-sm text-gray-400 space-y-1">
                 <li>• Pick the best answer you think fits</li>
                 <li>• No rush - read all the options</li>
-                <li>• Topics: Icons, Tech Terms, Navigation & Security</li>
+                <li>• Topics: Icons, Tech Terms & Interaction</li>
               </ul>
             </div>
           </div>

@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import Layout from '../../components/Layout';
 import ProgressBar from '../../components/ProgressBar';
 import useStore from '../../state/store';
-import useInteractionTracking from '../../hooks/useInteractionTracking';
 import { ISHIHARA_PLATES, analyzeColorBlindness } from '../../utils/colorBlindnessAnalysis';
 import { saveVisionResults } from '../../utils/api';
 
@@ -25,7 +24,6 @@ const ColorBlindnessTest = () => {
   const navigate = useNavigate();
   const sessionId = useStore((state) => state.sessionId);
   const { recordColorBlindnessResponse, completeColorBlindnessTest } = useStore();
-  const { trackEvent, trackClick, trackFocus } = useInteractionTracking('colorBlindness', true);
 
   // Load initial state from sessionStorage for persistence across refresh
   const getInitialPlateIndex = () => {
@@ -61,24 +59,16 @@ const ColorBlindnessTest = () => {
 
   useEffect(() => {
     if (currentPlate) {
-      trackEvent('plate_shown', {
-        metadata: { plateId: currentPlate?.plateId, imageName: currentPlate?.imageName },
-      });
       setPlateStartTime(Date.now());
     }
-  }, [currentPlateIndex, trackEvent, currentPlate]);
+  }, [currentPlateIndex, currentPlate]);
 
   const handleInputChange = (e) => {
-    const value = e.target.value;
-    setUserAnswer(value);
-    trackEvent('input_change', {
-      target: { id: 'answer-input', value: value.substring(0, 10) },
-    });
+    setUserAnswer(e.target.value);
   };
 
   const handleNothingClick = () => {
     setUserAnswer('nothing');
-    trackClick(new MouseEvent('click'), { customAction: 'nothing_selected' });
   };
 
   const handleSubmit = async () => {
@@ -93,9 +83,6 @@ const ColorBlindnessTest = () => {
     };
 
     recordColorBlindnessResponse(plateData);
-    trackEvent('plate_submitted', {
-      metadata: { ...plateData },
-    });
 
     if (isLastPlate) {
       completeColorBlindnessTest();
@@ -245,7 +232,6 @@ const ColorBlindnessTest = () => {
                 value={userAnswer}
                 onChange={handleInputChange}
                 onFocus={(e) => {
-                  trackFocus(e);
                   e.target.style.borderColor = 'rgba(var(--primary-color-rgb), 0.5)';
                   e.target.style.boxShadow = '0 0 15px rgba(var(--primary-color-rgb), 0.1)';
                 }}

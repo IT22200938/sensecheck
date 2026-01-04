@@ -2,12 +2,14 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import UserInfoModal from '../components/UserInfoModal';
 import useStore from '../state/store';
+import { useGame } from '../context/GameContext';
 import logo from '../resources/logo.png';
 
 const Home = () => {
   const navigate = useNavigate();
   const completedModules = useStore((state) => state.completedModules);
   const loadSessionData = useStore((state) => state.loadSessionData);
+  const { setUserId } = useGame();
   const [showUserInfoModal, setShowUserInfoModal] = useState(false);
   const [userInfoCollected, setUserInfoCollected] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -41,10 +43,19 @@ const Home = () => {
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, [loadSessionData, loading]);
 
+  const handleUserIdSet = (userId) => {
+    // Set userId in GameContext
+    setUserId(userId);
+    sessionStorage.setItem('sensecheck_user_id', userId);
+  };
+
   const handleUserInfoSubmit = (formData) => {
     sessionStorage.setItem('sensecheck_user_info_collected', 'true');
     sessionStorage.setItem('sensecheck_user_age', formData.age);
     sessionStorage.setItem('sensecheck_user_gender', formData.gender);
+    if (formData.userId) {
+      sessionStorage.setItem('sensecheck_user_id', formData.userId);
+    }
     setUserInfoCollected(true);
     setShowUserInfoModal(false);
     
@@ -90,6 +101,7 @@ const Home = () => {
           isOpen={showUserInfoModal}
           onClose={() => setShowUserInfoModal(false)}
           onSubmit={handleUserInfoSubmit}
+          onUserIdSet={handleUserIdSet}
         />
         
         <div className="min-h-screen bg-gradient-to-br from-gray-950 via-gray-900 to-black relative overflow-hidden flex items-center justify-center p-4">
@@ -126,6 +138,7 @@ const Home = () => {
         isOpen={showUserInfoModal}
         onClose={() => setShowUserInfoModal(false)}
         onSubmit={handleUserInfoSubmit}
+        onUserIdSet={handleUserIdSet}
       />
       
       <div className="min-h-screen bg-gradient-to-br from-gray-950 via-gray-900 to-black relative overflow-hidden">

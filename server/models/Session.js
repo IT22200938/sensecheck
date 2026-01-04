@@ -18,6 +18,15 @@ const sessionSchema = new mongoose.Schema({
     index: true,
   },
   
+  // User-provided identifier (nickname/alias from intro popup)
+  // Must be unique - each user gets one userId forever
+  userId: {
+    type: String,
+    unique: true,
+    sparse: true, // Allow null but enforce uniqueness for non-null values
+    index: true,
+  },
+  
   // Anonymized stable participant identifier (NOT userId/email)
   participantId: {
     type: String,
@@ -105,7 +114,7 @@ const sessionSchema = new mongoose.Schema({
   userInfo: {
     age: { 
       type: Number, 
-      min: 1, 
+      min: 18, 
       max: 120 
     },
     gender: {
@@ -134,12 +143,6 @@ const sessionSchema = new mongoose.Schema({
 sessionSchema.index({ createdAt: 1 }, { expireAfterSeconds: 31536000 }); // 365 days
 
 // Virtual fields to get all interaction buckets for this session
-sessionSchema.virtual('globalInteractions', {
-  ref: 'GlobalInteractionBucket',
-  localField: 'sessionId',
-  foreignField: 'sessionId',
-});
-
 sessionSchema.virtual('motorPointerTraces', {
   ref: 'MotorPointerTraceBucket',
   localField: 'sessionId',
@@ -151,12 +154,6 @@ sessionSchema.virtual('motorAttempts', {
   localField: 'sessionId',
   foreignField: 'sessionId',
 });
-
-// Method to get global interactions for this session
-sessionSchema.methods.getGlobalInteractions = async function() {
-  const GlobalInteractionBucket = mongoose.model('GlobalInteractionBucket');
-  return await GlobalInteractionBucket.getSessionInteractions(this.sessionId);
-};
 
 // Method to get motor pointer traces for this session
 sessionSchema.methods.getMotorPointerTraces = async function(round = null) {
@@ -178,20 +175,17 @@ sessionSchema.methods.getMotorStats = async function() {
 
 // Method to delete all associated interaction buckets
 sessionSchema.methods.deleteAllBuckets = async function() {
-  const GlobalInteractionBucket = mongoose.model('GlobalInteractionBucket');
   const MotorPointerTraceBucket = mongoose.model('MotorPointerTraceBucket');
   const MotorAttemptBucket = mongoose.model('MotorAttemptBucket');
   
   const results = await Promise.all([
-    GlobalInteractionBucket.deleteMany({ sessionId: this.sessionId }),
     MotorPointerTraceBucket.deleteMany({ sessionId: this.sessionId }),
     MotorAttemptBucket.deleteMany({ sessionId: this.sessionId }),
   ]);
   
   return {
-    globalInteractions: results[0].deletedCount,
-    motorPointerTraces: results[1].deletedCount,
-    motorAttempts: results[2].deletedCount,
+    motorPointerTraces: results[0].deletedCount,
+    motorAttempts: results[1].deletedCount,
     total: results.reduce((sum, r) => sum + r.deletedCount, 0),
   };
 };
@@ -200,12 +194,10 @@ sessionSchema.methods.deleteAllBuckets = async function() {
 sessionSchema.pre('remove', async function(next) {
   try {
     // Delete all bucket types
-    const GlobalInteractionBucket = mongoose.model('GlobalInteractionBucket');
     const MotorPointerTraceBucket = mongoose.model('MotorPointerTraceBucket');
     const MotorAttemptBucket = mongoose.model('MotorAttemptBucket');
     
     await Promise.all([
-      GlobalInteractionBucket.deleteMany({ sessionId: this.sessionId }),
       MotorPointerTraceBucket.deleteMany({ sessionId: this.sessionId }),
       MotorAttemptBucket.deleteMany({ sessionId: this.sessionId }),
     ]);

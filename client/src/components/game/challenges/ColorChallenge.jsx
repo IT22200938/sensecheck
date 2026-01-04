@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useGame } from '../../../context/GameContext';
 import useStore from '../../../state/store';
-import useInteractionTracking from '../../../hooks/useInteractionTracking';
 import { ISHIHARA_PLATES, analyzeColorBlindness } from '../../../utils/colorBlindnessAnalysis';
 import { saveVisionResults } from '../../../utils/api';
 
@@ -22,7 +21,6 @@ const ColorChallenge = () => {
   const { completeChallenge, recordCorrectAnswer, recordIncorrectAnswer, state, updateChallengeProgress } = useGame();
   const sessionId = useStore((state) => state.sessionId);
   const { recordColorBlindnessResponse, completeColorBlindnessTest } = useStore();
-  const { trackEvent, trackClick, trackFocus } = useInteractionTracking('colorBlindness', true);
   
   // Get saved progress from session
   const savedProgress = state.challengeProgress?.colorBlindness || {};
@@ -48,24 +46,16 @@ const ColorChallenge = () => {
   
   useEffect(() => {
     if (currentPlate) {
-      trackEvent('plate_shown', {
-        metadata: { plateId: currentPlate?.plateId, imageName: currentPlate?.imageName },
-      });
       setPlateStartTime(Date.now());
     }
-  }, [currentPlateIndex, trackEvent, currentPlate]);
+  }, [currentPlateIndex, currentPlate]);
   
   const handleInputChange = (e) => {
-    const value = e.target.value;
-    setUserAnswer(value);
-    trackEvent('input_change', {
-      target: { id: 'answer-input', value: value.substring(0, 10) },
-    });
+    setUserAnswer(e.target.value);
   };
   
   const handleNothingClick = () => {
     setUserAnswer('nothing');
-    trackClick(new MouseEvent('click'), { customAction: 'nothing_selected' });
   };
   
   const handleSubmit = async () => {
@@ -92,7 +82,6 @@ const ColorChallenge = () => {
     
     // Record to store
     recordColorBlindnessResponse(plateData);
-    trackEvent('plate_submitted', { metadata: { ...plateData } });
     
     const newPlates = [...plates, plateData];
     setPlates(newPlates);
@@ -105,6 +94,7 @@ const ColorChallenge = () => {
       try {
         await saveVisionResults({
           sessionId,
+          userId: state.userId,
           colorBlindness: {
             plates: newPlates,
             ...analysis,
@@ -182,7 +172,6 @@ const ColorChallenge = () => {
           value={userAnswer}
           onChange={handleInputChange}
           onFocus={(e) => {
-            trackFocus(e);
             e.target.style.borderColor = 'rgba(var(--primary-color-rgb), 0.5)';
           }}
           onBlur={(e) => {

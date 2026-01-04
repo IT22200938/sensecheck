@@ -1,8 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useGame } from '../../../context/GameContext';
 import useStore from '../../../state/store';
-import useInteractionTracking from '../../../hooks/useInteractionTracking';
-import { calculateVisualAcuityMetrics } from '../../../utils/visualAcuityCalculations';
+import { calculateVisualAcuityFromThreshold, getVisionCategory } from '../../../utils/visualAcuityCalculations';
 import { saveVisionResults } from '../../../utils/api';
 
 /**
@@ -11,44 +10,61 @@ import { saveVisionResults } from '../../../utils/api';
  */
 const calculateAdaptiveSizes = () => {
   const dpr = window.devicePixelRatio || 1;
-  const screenWidth = window.screen.width * dpr;
-  const screenHeight = window.screen.height * dpr;
   
-  // Estimate screen diagonal based on resolution
-  const totalPixels = screenWidth * screenHeight;
-  let estimatedDiagonal;
+  // PPI = DPR × 96 (CSS pixels are defined at 96 DPI reference)
+  const ppi = dpr * 96;
   
-  if (totalPixels > 8000000) estimatedDiagonal = 27;
-  else if (totalPixels > 3500000) estimatedDiagonal = 25;
-  else if (totalPixels > 2000000) estimatedDiagonal = 24;
-  else estimatedDiagonal = 15;
+  // ===== Calculate 20/20 vision threshold at 50cm for this screen's PPI =====
+  // 20/20 vision: optotype subtends 5 arc minutes at the eye
+  const VIEWING_DISTANCE_MM = 500; // 50cm in mm
+  const ARC_MINUTES_20_20 = 5;     // Standard for full optotype
   
-  const diagonalPixels = Math.sqrt(screenWidth * screenWidth + screenHeight * screenHeight);
-  const ppi = diagonalPixels / estimatedDiagonal;
+  // Convert arc minutes to radians
+  const angleRadians = (ARC_MINUTES_20_20 / 60) * (Math.PI / 180);
   
-  // 20/20 vision at 57cm: 5 arc minutes = ~0.83mm
-  const viewingDistanceMM = 570;
-  const arcMinutes = 5;
-  const angleRadians = (arcMinutes / 60) * (Math.PI / 180);
-  const physicalSizeMM = 2 * viewingDistanceMM * Math.tan(angleRadians / 2);
-  const twentyTwentyPixels = Math.round(physicalSizeMM * (ppi / 25.4));
+  // Physical size in mm: size = 2 * distance * tan(angle/2)
+  const physicalSizeMM = 2 * VIEWING_DISTANCE_MM * Math.tan(angleRadians / 2);
   
-  // 7 levels: Level 1 = 4x threshold, Level 7 = threshold
+  // Convert mm to pixels using this screen's PPI
+  const pixelsPerMM = ppi / 25.4;
+  const calculated2020Pixels = physicalSizeMM * pixelsPerMM;
+  
+  // Minimum displayable/legible size
+  const MIN_LEGIBLE_SIZE_PX = 10;
+  
+  // Use calculated threshold if >= 10px, otherwise use minimum
+  const twentyTwentyPixels = Math.max(MIN_LEGIBLE_SIZE_PX, Math.round(calculated2020Pixels));
+  
+  // Calculate test sizes: 7 levels
+  // Level 7 = twentyTwentyPixels (20/20 threshold)
+  // Level 1 = 4x the threshold (or minimum 80px for visibility)
+  const level7Size = twentyTwentyPixels;
   const level1Size = Math.max(80, twentyTwentyPixels * 4);
-  const level7Size = Math.max(12, twentyTwentyPixels);
   
   const sizes = [];
   for (let i = 0; i < 7; i++) {
     sizes.push(Math.round(level1Size - (level1Size - level7Size) * (i / 6)));
   }
   
-  console.log(`🦅 Visual Acuity: Sizes ${sizes.join('→')}px, 20/20=${twentyTwentyPixels}px`);
+  // Detailed logging for debugging
+  console.log(`🦅 Visual Acuity Calibration:`);
+  console.log(`   DPR: ${dpr} → PPI: ${ppi}`);
+  console.log(`   20/20 at 50cm: ${physicalSizeMM.toFixed(3)}mm = ${calculated2020Pixels.toFixed(1)}px (calculated)`);
+  console.log(`   20/20 threshold used: ${twentyTwentyPixels}px ${calculated2020Pixels < MIN_LEGIBLE_SIZE_PX ? '(clamped to min 10px)' : '(from calculation)'}`);
+  console.log(`   Test sizes: ${sizes.join(' → ')}px`);
   
-  return { sizes, twentyTwentyPixels, ppi: Math.round(ppi), estimatedDiagonal };
+  return { 
+    sizes, 
+    twentyTwentyPixels, 
+    ppi,
+    dpr,
+    calculated2020Pixels: Math.round(calculated2020Pixels * 10) / 10,
+    physicalSizeMM: Math.round(physicalSizeMM * 1000) / 1000,
+  };
 };
 
-// Distance in cm to screen (arm's length)
-const REQUIRED_DISTANCE_CM = 57;
+// Distance in cm to screen (arm's length = 50cm)
+const REQUIRED_DISTANCE_CM = 50;
 
 // Standard credit card size in mm (ISO/IEC 7810 ID-1)
 const CREDIT_CARD_WIDTH_MM = 85.6;
@@ -58,7 +74,6 @@ const AcuityChallenge = () => {
   const { completeChallenge, recordCorrectAnswer, recordIncorrectAnswer, state, updateChallengeProgress } = useGame();
   const sessionId = useStore((state) => state.sessionId);
   const { recordVisualAcuityAttempt, setVisualAcuitySize, completeVisualAcuityTest } = useStore();
-  const { trackEvent, trackClick } = useInteractionTracking('visualAcuity', true);
   
   // Screen calibration
   const screenCalibration = useMemo(() => calculateAdaptiveSizes(), []);
@@ -104,17 +119,13 @@ const AcuityChallenge = () => {
       const number = generateNumber();
       setCurrentNumber(number);
       setAttemptStartTime(Date.now());
-      trackEvent('number_shown', {
-        metadata: { number, size: currentSize, level: currentLevel, attempt: attemptNumber },
-      });
     }
-  }, [currentLevel, attemptNumber, trackEvent, currentSize, distanceConfirmed]);
+  }, [currentLevel, attemptNumber, currentSize, distanceConfirmed]);
   
   const handleDistanceConfirm = () => {
     setDistanceConfirmed(true);
     setShowDistanceSetup(false);
     updateChallengeProgress('visualAcuity', { distanceConfirmed: true });
-    trackEvent('distance_confirmed', { metadata: { distance: REQUIRED_DISTANCE_CM } });
   };
   
   const handleSubmit = async () => {
@@ -135,7 +146,6 @@ const AcuityChallenge = () => {
     };
     
     recordVisualAcuityAttempt(attemptData);
-    trackEvent('attempt_submitted', { metadata: attemptData });
     
     const newAttempts = [...attempts, attemptData];
     setAttempts(newAttempts);
@@ -167,12 +177,25 @@ const AcuityChallenge = () => {
     completeVisualAcuityTest();
     
     const finalSize = levelSizes[finalLevel - 1];
-    const metrics = calculateVisualAcuityMetrics(finalSize);
     
-    const visionRating = finalLevel >= 7 ? '20/20 (Perfect)' 
-      : finalLevel >= 5 ? '20/25 (Near Perfect)'
-      : finalLevel >= 3 ? '20/40 (Normal)'
+    // Use threshold-based calculation for accurate vision assessment
+    // This compares resolved size against the 20/20 threshold for THIS screen
+    const metrics = calculateVisualAcuityFromThreshold(finalSize, twentyTwentyPixels);
+    const visionCategory = getVisionCategory(metrics.visualAcuityDecimal);
+    
+    const visionRating = metrics.visualAcuityDecimal >= 1.0 ? '20/20 (Perfect)' 
+      : metrics.visualAcuityDecimal >= 0.8 ? '20/25 (Near Perfect)'
+      : metrics.visualAcuityDecimal >= 0.5 ? '20/40 (Normal)'
       : '20/60+ (Below Average)';
+    
+    console.log(`🦅 Vision Test Complete:`, {
+      finalLevel,
+      finalSize,
+      twentyTwentyThreshold: twentyTwentyPixels,
+      visualAcuityDecimal: metrics.visualAcuityDecimal,
+      visionLoss: metrics.visionLoss,
+      snellenEstimate: metrics.snellenEstimate,
+    });
     
     const resultsData = {
       attempts: allAttempts,
@@ -181,13 +204,19 @@ const AcuityChallenge = () => {
       twentyTwentyThreshold: twentyTwentyPixels,
       screenCalibration,
       visionRating,
-      isPerfectVision: finalLevel >= 7,
+      isPerfectVision: metrics.visualAcuityDecimal >= 1.0,
       viewingDistanceCM: REQUIRED_DISTANCE_CM,
-      ...metrics,
+      // Threshold-based metrics (accurate)
+      visualAcuityDecimal: metrics.visualAcuityDecimal,
+      visionLoss: metrics.visionLoss,
+      snellenDenominator: metrics.snellenDenominator,
+      snellenEstimate: metrics.snellenEstimate,
+      visionCategory: visionCategory.category,
+      visionCategoryName: visionCategory.name,
     };
     
     try {
-      await saveVisionResults({ sessionId, visualAcuity: resultsData });
+      await saveVisionResults({ sessionId, userId: state.userId, visualAcuity: resultsData });
     } catch (error) {
       console.error('Failed to save results:', error);
     }
@@ -477,10 +506,7 @@ const AcuityChallenge = () => {
         />
         
         <button
-          onClick={(e) => {
-            trackClick(e);
-            handleSubmit();
-          }}
+          onClick={handleSubmit}
           disabled={!userAnswer.trim()}
           className="w-full py-4 px-6 rounded-xl font-semibold text-white transition-all duration-300 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
           style={{ 

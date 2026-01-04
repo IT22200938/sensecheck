@@ -6,7 +6,7 @@ import { logger } from '../services/logging/logger.js';
 // Save vision test results
 export const saveVisionResults = async (req, res) => {
   try {
-    const { sessionId, colorBlindness, visualAcuity, testConditions } = req.body;
+    const { sessionId, userId, colorBlindness, visualAcuity, testConditions } = req.body;
 
     // Validate required fields
     if (!sessionId) {
@@ -21,6 +21,7 @@ export const saveVisionResults = async (req, res) => {
     
     if (visionResult) {
       // Update existing results
+      if (userId) visionResult.userId = userId;
       if (colorBlindness) visionResult.colorBlindness = colorBlindness;
       if (visualAcuity) visionResult.visualAcuity = visualAcuity;
       if (testConditions) visionResult.testConditions = testConditions;
@@ -31,6 +32,7 @@ export const saveVisionResults = async (req, res) => {
       // Create new results
       visionResult = new VisionResult({
         sessionId,
+        userId,
         colorBlindness,
         visualAcuity,
         testConditions,
@@ -73,10 +75,12 @@ export const saveVisionResults = async (req, res) => {
 export const saveLiteracyResults = async (req, res) => {
   try {
     const { 
-      sessionId, 
+      sessionId,
+      userId,
       responses, 
-      score, 
-      metrics, 
+      score, // Decimal score (0.0 - 1.0)
+      correctAnswers,
+      totalQuestions,
       categoryScores 
     } = req.body;
 
@@ -88,12 +92,14 @@ export const saveLiteracyResults = async (req, res) => {
       });
     }
 
-    // Create new results
+    // Create new results with simplified schema
     const literacyResult = new LiteracyResult({
       sessionId,
+      userId,
       responses,
-      score,
-      metrics,
+      score, // Decimal score
+      correctAnswers,
+      totalQuestions,
       categoryScores,
     });
     
@@ -259,6 +265,77 @@ export const updateSessionPerformance = async (req, res) => {
   }
 };
 
+// Check if userId already exists
+export const checkUserIdExists = async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    if (!userId || userId.trim().length < 2) {
+      return res.status(400).json({
+        success: false,
+        error: 'User ID must be at least 2 characters',
+      });
+    }
+
+    const existingSession = await Session.findOne({ userId: userId.trim() });
+
+    res.json({
+      success: true,
+      exists: !!existingSession,
+      userId: userId.trim(),
+    });
+  } catch (error) {
+    logger.error('Error checking userId:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to check user ID',
+    });
+  }
+};
+
+// Generate a unique userId suggestion
+export const suggestUserId = async (req, res) => {
+  try {
+    const { baseId } = req.query;
+    
+    let suggestion;
+    let attempts = 0;
+    const maxAttempts = 10;
+    
+    // Generate suggestions based on baseId or random
+    while (attempts < maxAttempts) {
+      if (baseId && baseId.trim().length >= 2) {
+        // Add random suffix to base ID
+        const suffix = Math.random().toString(36).slice(2, 6);
+        suggestion = `${baseId.trim()}_${suffix}`;
+      } else {
+        // Generate completely random ID
+        const prefix = ['user', 'player', 'test'][Math.floor(Math.random() * 3)];
+        const suffix = Math.random().toString(36).slice(2, 8);
+        suggestion = `${prefix}_${suffix}`;
+      }
+      
+      // Check if this suggestion is unique
+      const exists = await Session.findOne({ userId: suggestion });
+      if (!exists) {
+        break;
+      }
+      attempts++;
+    }
+
+    res.json({
+      success: true,
+      suggestion,
+    });
+  } catch (error) {
+    logger.error('Error generating userId suggestion:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to generate suggestion',
+    });
+  }
+};
+
 // Helper: Compute age bucket from age
 function computeAgeBucket(age) {
   if (!age || age < 18) return 'unknown';
@@ -274,7 +351,8 @@ function computeAgeBucket(age) {
 export const createSession = async (req, res) => {
   try {
     const { 
-      sessionId, 
+      sessionId,
+      userId, // User's anonymous ID
       userAgent, 
       screenResolution, 
       deviceType,
@@ -311,6 +389,7 @@ export const createSession = async (req, res) => {
       { sessionId },
       { 
         sessionId,
+        userId, // Save the user ID
         participantId,
         // Basic device info (legacy)
         userAgent,
@@ -353,6 +432,7 @@ export const createSession = async (req, res) => {
     );
 
     logger.info(`Session created/updated: ${sessionId}`, { 
+      userId,
       participantId,
       age: userInfo.age, 
       ageBucket: computeAgeBucket(parseInt(userInfo.age)),
@@ -368,6 +448,25 @@ export const createSession = async (req, res) => {
     });
   } catch (error) {
     logger.error('Error creating session:', error);
+    
+    // Handle duplicate key errors (userId already exists)
+    if (error.code === 11000) {
+      const duplicateField = Object.keys(error.keyPattern || {})[0] || 'field';
+      if (duplicateField === 'userId') {
+        return res.status(409).json({ 
+          success: false, 
+          error: 'This User ID is already taken. Please choose a different one.',
+          code: 11000,
+          field: 'userId'
+        });
+      }
+      return res.status(409).json({ 
+        success: false, 
+        error: `Duplicate ${duplicateField} detected`,
+        code: 11000,
+        field: duplicateField
+      });
+    }
     
     // Handle validation errors
     if (error.name === 'ValidationError') {

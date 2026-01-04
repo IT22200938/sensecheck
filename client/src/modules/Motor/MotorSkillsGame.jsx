@@ -609,7 +609,7 @@ const MotorSkillsGame = () => {
               AURA <span style={{ color: 'var(--primary-color)' }}>Bubble Pop</span>
             </h1>
             <p className="text-gray-400 text-sm tracking-widest uppercase">You're a Champion! 🏆</p>
-          </div>
+            </div>
 
           <div className="max-w-2xl mx-auto">
             <div className="relative bg-gray-900/80 backdrop-blur-xl border border-gray-800 rounded-3xl p-10 shadow-2xl overflow-hidden">
@@ -623,22 +623,22 @@ const MotorSkillsGame = () => {
                     <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                   </svg>
                 </div>
-              </div>
-              
+            </div>
+
               <h3 className="relative text-3xl font-bold text-center mb-2 text-white">You Did It! 🎉</h3>
               <p className="text-center text-gray-400 mb-8">All rounds finished successfully</p>
-              <button
-                onClick={() => navigate('/')}
+            <button
+              onClick={() => navigate('/')}
                 className="w-full py-4 px-6 rounded-xl font-semibold text-white transition-all duration-300 shadow-lg hover:scale-[1.02] active:scale-[0.98]"
                 style={{ 
                   background: 'linear-gradient(135deg, var(--primary-color) 0%, var(--primary-color-light) 100%)',
                   boxShadow: '0 4px 20px var(--primary-color-glow)'
                 }}
-              >
-                Return to Home
-              </button>
-            </div>
+            >
+              Return to Home
+            </button>
           </div>
+        </div>
         </div>
       </div>
     );
@@ -680,7 +680,7 @@ const MotorSkillsGame = () => {
           {/* Status Bar */}
           <div className="bg-gray-900/70 backdrop-blur-xl border border-gray-800 rounded-2xl p-4 sm:p-6 shadow-xl">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-              {/* Round Info */}
+        {/* Round Info */}
               <div className="flex items-center gap-4">
                 <div className="relative">
                   <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl flex items-center justify-center" style={{ background: 'linear-gradient(135deg, rgba(var(--primary-color-rgb), 0.2) 0%, rgba(var(--primary-color-rgb), 0.05) 100%)', border: '1px solid rgba(var(--primary-color-rgb), 0.3)' }}>
@@ -690,10 +690,10 @@ const MotorSkillsGame = () => {
                     <span className="text-[10px] text-gray-400">/3</span>
                   </div>
                 </div>
-                <div>
+            <div>
                   <h3 className="text-lg sm:text-xl font-bold text-white">
                     Wave {currentRound}
-                  </h3>
+              </h3>
                   <p className="text-sm text-gray-400">
                     {isPlaying ? (
                       <span className="flex items-center gap-2">
@@ -707,8 +707,8 @@ const MotorSkillsGame = () => {
                     ) : (
                       'Ready when you are'
                     )}
-                  </p>
-                </div>
+              </p>
+            </div>
               </div>
               
               {/* Timer */}
@@ -734,8 +734,8 @@ const MotorSkillsGame = () => {
                       {timeRemaining}<span className="text-2xl sm:text-3xl">s</span>
                     </div>
                     <div className="text-xs text-gray-500 uppercase tracking-wider">Time Left</div>
-                  </div>
-                </div>
+            </div>
+          </div>
 
                 {/* Round indicators */}
                 <div className="hidden sm:flex flex-col gap-1.5">
@@ -758,8 +758,8 @@ const MotorSkillsGame = () => {
 
             {/* Action Button */}
             {!isPlaying && !isCompleting && !isTransitioning && (
-              <button
-                onClick={startRound}
+            <button
+              onClick={startRound}
                 className="w-full mt-5 py-4 px-6 rounded-xl font-bold text-base sm:text-lg text-white transition-all duration-300 shadow-lg hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-3"
                 style={{ 
                   background: 'linear-gradient(135deg, var(--primary-color) 0%, var(--primary-color-light) 100%)',
@@ -770,8 +770,8 @@ const MotorSkillsGame = () => {
                   <path strokeLinecap="round" strokeLinejoin="round" d="M5 3l14 9-14 9V3z" />
                 </svg>
                 {currentRound === 1 ? "Let's Go!" : `Start Wave ${currentRound}`}
-              </button>
-            )}
+            </button>
+          )}
             
             {isTransitioning && (
               <div className="mt-5 py-4 flex items-center justify-center gap-3" style={{ color: 'var(--primary-color)' }}>
@@ -783,21 +783,21 @@ const MotorSkillsGame = () => {
                 <span className="font-semibold">Next Wave Coming...</span>
               </div>
             )}
-            
-            {isCompleting && (
+          
+          {isCompleting && (
               <div className="mt-5 py-4 flex items-center justify-center gap-3" style={{ color: 'var(--primary-color)' }}>
                 <svg className="w-5 h-5 animate-spin" viewBox="0 0 24 24" fill="none">
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                 </svg>
                 <span className="font-semibold">Completing Assessment...</span>
-              </div>
-            )}
-          </div>
+            </div>
+          )}
+        </div>
 
-          {/* Game Stage */}
+        {/* Game Stage */}
           <div className="bg-gray-900/70 backdrop-blur-xl border border-gray-800 rounded-2xl p-3 sm:p-4 shadow-xl overflow-hidden">
-            <div
+          <div
               style={{ width: '100%', maxWidth: STAGE_WIDTH, height: STAGE_HEIGHT }}
               className="mx-auto rounded-xl overflow-hidden relative"
             >
@@ -818,53 +818,53 @@ const MotorSkillsGame = () => {
                 <div className="absolute bottom-0 left-0 right-0 h-32" style={{ background: 'linear-gradient(to top, rgba(var(--primary-color-rgb), 0.1) 0%, transparent 100%)' }} />
               </div>
 
-              <Stage
-                ref={stageRef}
-                width={STAGE_WIDTH}
-                height={STAGE_HEIGHT}
-                onClick={handleStageClick}
-                onMouseDown={handlePointerDown}
-                onMouseMove={handlePointerMove}
-                onTouchStart={handlePointerDown}
-                onTouchMove={handlePointerMove}
+            <Stage
+              ref={stageRef}
+              width={STAGE_WIDTH}
+              height={STAGE_HEIGHT}
+              onClick={handleStageClick}
+              onMouseDown={handlePointerDown}
+              onMouseMove={handlePointerMove}
+              onTouchStart={handlePointerDown}
+              onTouchMove={handlePointerMove}
                 style={{ cursor: isPlaying ? 'crosshair' : 'default' }}
-              >
-                <Layer>
+            >
+              <Layer>
                   {/* Column dividers with gradient effect */}
-                  {[1, 2, 3, 4].map((i) => (
-                    <Rect
-                      key={`divider-${i}`}
+                {[1, 2, 3, 4].map((i) => (
+                  <Rect
+                    key={`divider-${i}`}
                       x={i * COLUMN_WIDTH - 0.5}
-                      y={0}
-                      width={1}
-                      height={STAGE_HEIGHT}
+                    y={0}
+                    width={1}
+                    height={STAGE_HEIGHT}
                       fill="rgba(31, 184, 84, 0.15)"
-                    />
-                  ))}
+                  />
+                ))}
 
                   {/* Target bubbles - AURA green themed */}
-                  {bubbles.map((bubble) => (
-                    <Circle
-                      key={bubble.id}
-                      x={bubble.x}
-                      y={bubble.y}
-                      radius={bubble.radius}
+                {bubbles.map((bubble) => (
+                  <Circle
+                    key={bubble.id}
+                    x={bubble.x}
+                    y={bubble.y}
+                    radius={bubble.radius}
                       fill="rgba(31, 184, 84, 0.85)"
                       stroke="rgba(62, 212, 111, 0.8)"
                       strokeWidth={3}
-                      onClick={(e) => handleBubbleClick(bubble, e)}
-                      onTap={(e) => handleBubbleClick(bubble, e)}
+                    onClick={(e) => handleBubbleClick(bubble, e)}
+                    onTap={(e) => handleBubbleClick(bubble, e)}
                       shadowColor="#1FB854"
                       shadowBlur={20}
                       shadowOpacity={0.7}
-                    />
-                  ))}
-                </Layer>
-              </Stage>
+                  />
+                ))}
+              </Layer>
+            </Stage>
 
               {/* Column zone indicators */}
               <div className="absolute bottom-0 left-0 right-0 flex">
-                {[1, 2, 3, 4, 5].map((i) => (
+              {[1, 2, 3, 4, 5].map((i) => (
                   <div 
                     key={i} 
                     style={{ width: COLUMN_WIDTH, borderTop: '1px solid rgba(var(--primary-color-rgb), 0.2)' }} 

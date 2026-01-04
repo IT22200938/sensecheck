@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useGame } from '../../../context/GameContext';
 import useStore from '../../../state/store';
-import useInteractionTracking from '../../../hooks/useInteractionTracking';
 import { LITERACY_QUESTIONS, calculateLiteracyScore, calculateCategoryScores } from '../../../utils/literacyQuestions';
 import { saveLiteracyResults } from '../../../utils/api';
 
@@ -9,7 +8,6 @@ const QuizChallenge = () => {
   const { completeChallenge, recordCorrectAnswer, recordIncorrectAnswer, state, updateChallengeProgress } = useGame();
   const sessionId = useStore((state) => state.sessionId);
   const { recordLiteracyResponse, completeLiteracyTest, completeModule } = useStore();
-  const { trackEvent, trackClick, trackHover, trackFocus } = useInteractionTracking('literacy', true);
   
   // Get saved progress from session
   const savedProgress = state.challengeProgress?.knowledgeQuiz || {};
@@ -42,16 +40,10 @@ const QuizChallenge = () => {
     setQuestionStartTime(Date.now());
     setFocusShiftCount(0);
     setHoverEvents([]);
-    trackEvent('question_shown', {
-      metadata: { questionId: currentQuestion.id, category: currentQuestion.category },
-    });
-  }, [currentQuestionIndex, currentQuestion, trackEvent]);
+  }, [currentQuestionIndex]);
   
-  const handleOptionClick = (option, event) => {
+  const handleOptionClick = (option) => {
     setSelectedAnswer(option);
-    trackClick(event, {
-      metadata: { questionId: currentQuestion.id, selectedOption: option },
-    });
   };
   
   const handleOptionHover = (option, isEntering) => {
@@ -61,18 +53,12 @@ const QuizChallenge = () => {
       if (hoverTimerRef.current[option]) {
         const duration = Date.now() - hoverTimerRef.current[option];
         setHoverEvents((prev) => [...prev, { option, duration, timestamp: Date.now() }]);
-        trackHover(new MouseEvent('hover'), {
-          metadata: { questionId: currentQuestion.id, option, duration },
-        });
       }
     }
   };
   
-  const handleFocus = (event) => {
+  const handleFocus = () => {
     setFocusShiftCount((prev) => prev + 1);
-    trackFocus(event, {
-      metadata: { questionId: currentQuestion.id, count: focusShiftCount + 1 },
-    });
   };
   
   const handleSubmit = async () => {
@@ -100,9 +86,6 @@ const QuizChallenge = () => {
     };
     
     recordLiteracyResponse(responseData);
-    trackEvent('question_submitted', {
-      metadata: { ...responseData, category: currentQuestion.category },
-    });
     
     const newResponses = [...responses, responseData];
     setResponses(newResponses);
@@ -122,23 +105,16 @@ const QuizChallenge = () => {
   const finishQuiz = async (allResponses) => {
     completeLiteracyTest();
     
-    const score = calculateLiteracyScore(allResponses);
+    const scoreData = calculateLiteracyScore(allResponses);
     const categoryScores = calculateCategoryScores(allResponses);
-    
-    const totalTime = allResponses.reduce((sum, r) => sum + r.responseTime, 0);
-    const totalFocusShifts = allResponses.reduce((sum, r) => sum + r.focusShifts, 0);
-    const totalHoverEvents = allResponses.reduce((sum, r) => sum + r.hoverEvents.length, 0);
     
     const resultsData = {
       sessionId,
+      userId: state.userId,
       responses: allResponses,
-      score,
-      metrics: {
-        totalTime,
-        averageResponseTime: Math.round(totalTime / allResponses.length),
-        totalFocusShifts,
-        totalHoverEvents,
-      },
+      score: scoreData.score, // Decimal score (0.0 - 1.0)
+      correctAnswers: scoreData.correctAnswers,
+      totalQuestions: scoreData.totalQuestions,
       categoryScores,
     };
     
@@ -175,8 +151,7 @@ const QuizChallenge = () => {
         <div className="inline-block px-3 py-1 rounded-full text-xs font-medium capitalize bg-gray-800/50" style={{ color: 'var(--primary-color)' }}>
           {currentQuestion.category === 'icons' ? '🎨 Icons' : 
            currentQuestion.category === 'terminology' ? '📚 Tech Terms' :
-           currentQuestion.category === 'navigation' ? '🧭 Navigation' : 
-           '🔐 Security'}
+           '🖱️ Interaction'}
         </div>
       </div>
       
@@ -205,7 +180,7 @@ const QuizChallenge = () => {
         {currentQuestion.options.map((option) => (
           <button
             key={option}
-            onClick={(e) => handleOptionClick(option, e)}
+            onClick={() => handleOptionClick(option)}
             onFocus={handleFocus}
             onMouseEnter={() => handleOptionHover(option, true)}
             onMouseLeave={() => handleOptionHover(option, false)}

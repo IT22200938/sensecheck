@@ -157,11 +157,12 @@ const Results = () => {
                     Computer Literacy Score
                   </div>
                   <div className="text-4xl font-bold">
-                    {hasLiteracy.score.computerLiteracyScore.toFixed(1)}
+                    {typeof hasLiteracy.score === 'number' 
+                      ? (hasLiteracy.score * 100).toFixed(0)
+                      : hasLiteracy.score?.percentage || 0}%
                   </div>
                   <div className="text-sm text-gray-400 mt-1">
-                    {hasLiteracy.score.correctAnswers} / {hasLiteracy.score.totalQuestions} Correct
-                    ({hasLiteracy.score.percentage}%)
+                    {hasLiteracy.correctAnswers || hasLiteracy.score?.correctAnswers || 0} / {hasLiteracy.totalQuestions || hasLiteracy.score?.totalQuestions || 0} Correct
                   </div>
                 </div>
 
@@ -176,26 +177,10 @@ const Results = () => {
                       >
                         <span className="text-sm capitalize">{cat.category}</span>
                         <span className="font-bold text-cyber-blue-400">
-                          {cat.percentage}%
+                          {cat.score != null ? (cat.score * 100).toFixed(0) : cat.percentage}%
                         </span>
                       </div>
                     ))}
-                  </div>
-                </div>
-
-                {/* Metrics */}
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="bg-gray-700/50 p-2 rounded-lg">
-                    <div className="text-xs text-gray-400">Avg Time</div>
-                    <div className="text-sm font-semibold">
-                      {(hasLiteracy.metrics.averageResponseTime / 1000).toFixed(1)}s
-                    </div>
-                  </div>
-                  <div className="bg-gray-700/50 p-2 rounded-lg">
-                    <div className="text-xs text-gray-400">Focus Shifts</div>
-                    <div className="text-sm font-semibold">
-                      {hasLiteracy.metrics.totalFocusShifts}
-                    </div>
                   </div>
                 </div>
               </div>

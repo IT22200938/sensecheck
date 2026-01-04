@@ -18,6 +18,10 @@ const motorRoundSummarySchema = new mongoose.Schema({
     index: true,
     ref: 'Session',
   },
+  userId: {
+    type: String,
+    index: true,
+  },
   participantId: { 
     type: String, 
     required: true, 
@@ -81,6 +85,10 @@ const motorSessionSummarySchema = new mongoose.Schema({
     unique: true, 
     index: true,
     ref: 'Session',
+  },
+  userId: {
+    type: String,
+    index: true,
   },
   participantId: { 
     type: String, 

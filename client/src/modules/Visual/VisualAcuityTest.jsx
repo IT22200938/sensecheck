@@ -2,7 +2,6 @@ import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Layout from '../../components/Layout';
 import useStore from '../../state/store';
-import useInteractionTracking from '../../hooks/useInteractionTracking';
 import { calculateVisualAcuityMetrics } from '../../utils/visualAcuityCalculations';
 import { saveVisionResults } from '../../utils/api';
 
@@ -37,7 +36,7 @@ const calculateAdaptiveSizes = () => {
   
   // 7 levels: Level 1 = 4x threshold, Level 7 = threshold
   const level1Size = Math.max(80, twentyTwentyPixels * 4);
-  const level7Size = Math.max(12, twentyTwentyPixels);
+  const level7Size = Math.max(10, twentyTwentyPixels);
   
   const sizes = [];
   for (let i = 0; i < 7; i++) {
@@ -56,7 +55,6 @@ const VisualAcuityTest = () => {
     completeVisualAcuityTest,
     completeModule,
   } = useStore();
-  const { trackEvent, trackClick } = useInteractionTracking('visualAcuity', true);
 
   // Calculate adaptive sizes
   const screenCalibration = useMemo(() => calculateAdaptiveSizes(), []);
@@ -106,11 +104,8 @@ const VisualAcuityTest = () => {
       const number = generateNumber();
       setCurrentNumber(number);
       setAttemptStartTime(Date.now());
-      trackEvent('number_shown', {
-        metadata: { number, size: currentSize, level: currentLevel, attempt: attemptNumber },
-      });
     }
-  }, [currentLevel, attemptNumber, trackEvent, isComplete, currentSize]);
+  }, [currentLevel, attemptNumber, isComplete, currentSize]);
 
   const handleSubmit = async () => {
     if (!userAnswer.trim()) return;
@@ -130,7 +125,6 @@ const VisualAcuityTest = () => {
     };
 
     recordVisualAcuityAttempt(attemptData);
-    trackEvent('attempt_submitted', { metadata: attemptData });
 
     if (isCorrect) {
       setLastCorrectLevel(currentLevel);
@@ -320,10 +314,7 @@ const VisualAcuityTest = () => {
                 id="number-input"
                 type="number"
                 value={userAnswer}
-                onChange={(e) => {
-                  setUserAnswer(e.target.value);
-                  trackEvent('input_change', { target: { value: e.target.value } });
-                }}
+                onChange={(e) => setUserAnswer(e.target.value)}
                 onFocus={(e) => {
                   e.target.style.borderColor = 'rgba(var(--primary-color-rgb), 0.5)';
                   e.target.style.boxShadow = '0 0 15px rgba(var(--primary-color-rgb), 0.1)';
@@ -343,10 +334,7 @@ const VisualAcuityTest = () => {
             </div>
 
             <button
-              onClick={(e) => {
-                trackClick(e);
-                handleSubmit();
-              }}
+              onClick={handleSubmit}
               disabled={!userAnswer.trim()}
               className="w-full py-4 px-6 rounded-xl font-semibold text-white transition-all duration-300 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none"
               style={{ 

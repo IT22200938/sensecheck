@@ -73,8 +73,14 @@ const GameFlow = () => {
               </div>
             </div>
             
-            {/* Progress */}
+            {/* User ID & Progress */}
             <div className="flex items-center gap-4">
+              {state.userId && (
+                <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gray-800/50 border border-gray-700/50">
+                  <span className="text-xs text-gray-500">Player:</span>
+                  <span className="font-mono text-sm font-medium text-white">{state.userId}</span>
+                </div>
+              )}
               <JourneyProgress minimal />
               <div className="hidden sm:block">
                 <StatsPanel compact />

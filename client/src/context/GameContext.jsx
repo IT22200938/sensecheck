@@ -39,7 +39,16 @@ export const PROFILE_TRAITS = {
   }
 };
 
+// Generate session ID
+const generateSessionId = () => {
+  return `session_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+};
+
 const initialState = {
+  // User & session identifiers
+  userId: null,
+  sessionId: generateSessionId(),
+  
   // Current phase
   currentPhase: 'intro',
   
@@ -88,6 +97,7 @@ const initialState = {
 
 // Action types
 const ACTIONS = {
+  SET_USER_ID: 'SET_USER_ID',
   START_GAME: 'START_GAME',
   SET_PHASE: 'SET_PHASE',
   COMPLETE_CHALLENGE: 'COMPLETE_CHALLENGE',
@@ -107,6 +117,12 @@ const ACTIONS = {
 
 function gameReducer(state, action) {
   switch (action.type) {
+    case ACTIONS.SET_USER_ID:
+      return {
+        ...state,
+        userId: action.payload,
+      };
+      
     case ACTIONS.START_GAME:
       return {
         ...state,
@@ -268,6 +284,8 @@ export function GameProvider({ children }) {
     if (state.startTime) {
       try {
         sessionStorage.setItem(STORAGE_KEY, JSON.stringify({
+          userId: state.userId,
+          sessionId: state.sessionId,
           currentPhase: state.currentPhase,
           completedChallenges: state.completedChallenges,
           stats: state.stats,
@@ -284,6 +302,10 @@ export function GameProvider({ children }) {
   }, [state]);
   
   // Actions
+  const setUserId = useCallback((userId) => {
+    dispatch({ type: ACTIONS.SET_USER_ID, payload: userId });
+  }, []);
+  
   const startGame = useCallback(() => {
     dispatch({ type: ACTIONS.START_GAME });
   }, []);
@@ -373,6 +395,7 @@ export function GameProvider({ children }) {
     elapsedTime,
     
     // Actions
+    setUserId,
     startGame,
     goToPhase,
     completeChallenge,

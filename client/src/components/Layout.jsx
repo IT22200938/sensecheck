@@ -31,33 +31,33 @@ const Layout = ({ children, title, subtitle, showHome = true }) => {
       <header className="relative z-20 border-b border-gray-800/50">
         <div className="glass">
           <div className="container mx-auto px-4 sm:px-6 py-4">
-            <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 {/* AURA Logo */}
                 <img src={logo} alt="AURA Logo" className="w-10 h-10 object-contain" />
-                <div>
+            <div>
                   <h1 className="text-xl sm:text-2xl font-black tracking-tight text-white">
                     AURA
-                  </h1>
-                  {subtitle && (
+              </h1>
+              {subtitle && (
                     <p className="text-xs font-medium tracking-wider uppercase" style={{ color: 'var(--primary-color)' }}>{subtitle}</p>
-                  )}
+              )}
                 </div>
-              </div>
-              {showHome && (
-                <button
-                  onClick={() => navigate('/')}
+            </div>
+            {showHome && (
+              <button
+                onClick={() => navigate('/')}
                   className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gray-800/50 border border-gray-700/50 transition-all duration-300 text-sm font-medium text-gray-300 hover:text-white"
                   style={{ '--hover-border': 'var(--primary-color)' }}
                   onMouseEnter={(e) => e.currentTarget.style.borderColor = 'rgba(var(--primary-color-rgb), 0.3)'}
                   onMouseLeave={(e) => e.currentTarget.style.borderColor = ''}
-                >
+              >
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
                   </svg>
                   <span className="hidden sm:inline">Home</span>
-                </button>
-              )}
+              </button>
+            )}
             </div>
           </div>
         </div>

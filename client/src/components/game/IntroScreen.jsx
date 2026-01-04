@@ -1,10 +1,21 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useGame } from '../../context/GameContext';
 import logo from '../../resources/logo.png';
 
 const IntroScreen = () => {
-  const { startGame } = useGame();
+  const { startGame, setUserId, state } = useGame();
   const [isStarting, setIsStarting] = useState(false);
+  
+  // Load userId from storage if not already set in context
+  useEffect(() => {
+    if (!state.userId) {
+      const savedUserId = localStorage.getItem('aura_user_id') || 
+                          sessionStorage.getItem('sensecheck_user_id');
+      if (savedUserId) {
+        setUserId(savedUserId);
+      }
+    }
+  }, [state.userId, setUserId]);
   
   const handleStart = () => {
     setIsStarting(true);
@@ -48,13 +59,26 @@ const IntroScreen = () => {
             </div>
           </div>
           
-          <h2 className="text-2xl sm:text-3xl font-bold text-white mb-4">
-            Ready to Challenge Yourself?
-          </h2>
-          <p className="text-gray-400 max-w-lg mx-auto leading-relaxed">
-            Four quick brain games await! Spot hidden patterns, test your focus, 
-            pop bubbles at lightning speed, and prove your digital smarts.
-          </p>
+          {state.userId ? (
+            <>
+              <h2 className="text-2xl sm:text-3xl font-bold text-white mb-2">
+                Welcome back, <span style={{ color: 'var(--primary-color)' }}>{state.userId}</span>!
+              </h2>
+              <p className="text-gray-400 max-w-lg mx-auto leading-relaxed">
+                Ready for another round? Four quick brain games await!
+              </p>
+            </>
+          ) : (
+            <>
+              <h2 className="text-2xl sm:text-3xl font-bold text-white mb-4">
+                Ready to Challenge Yourself?
+              </h2>
+              <p className="text-gray-400 max-w-lg mx-auto leading-relaxed">
+                Four quick brain games await! Spot hidden patterns, test your focus, 
+                pop bubbles at lightning speed, and prove your digital smarts.
+              </p>
+            </>
+          )}
         </div>
         
         {/* Game preview cards */}

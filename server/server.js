@@ -9,7 +9,8 @@ import { errorHandler } from './middleware/errorHandler.js';
 // Routes
 import resultsRoutes from './routes/results.js';
 import motorRoutes from './routes/motor.js';
-import globalRoutes from './routes/global.js';
+import impairmentRoutes from './routes/impairment.js';
+import deviceContextRoutes from './routes/deviceContext.js';
 
 dotenv.config();
 
@@ -25,7 +26,8 @@ app.use(requestLogger);
 // Routes - ML-Ready APIs
 app.use('/api/results', resultsRoutes); // Session & module results
 app.use('/api/motor', motorRoutes); // Motor skills: trace, attempts, summaries
-app.use('/api/global', globalRoutes); // Global interactions
+app.use('/api/impairment', impairmentRoutes); // Impairment profiles & probabilities
+app.use('/api/device-context', deviceContextRoutes); // Device/viewport context
 
 // Health check
 app.get('/api/health', (req, res) => {

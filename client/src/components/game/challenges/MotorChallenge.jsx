@@ -4,6 +4,7 @@ import { useGame } from '../../../context/GameContext';
 import useStore from '../../../state/store';
 import MotorSkillsTracker from '../../../utils/motorSkillsTracking';
 import usePerformanceMetrics from '../../../hooks/usePerformanceMetrics';
+import { updateSessionPerformance } from '../../../utils/api';
 
 // Bubble patterns for each round
 const BUBBLE_PATTERNS = [
@@ -57,9 +58,12 @@ const MotorChallenge = () => {
   // Initialize tracker
   useEffect(() => {
     if (!motorTrackerRef.current && sessionId) {
-      motorTrackerRef.current = new MotorSkillsTracker(sessionId);
+      motorTrackerRef.current = new MotorSkillsTracker(sessionId, state.userId);
+    } else if (motorTrackerRef.current && state.userId && !motorTrackerRef.current.userId) {
+      // Set userId if tracker was created before userId was available
+      motorTrackerRef.current.setUserId(state.userId);
     }
-  }, [sessionId]);
+  }, [sessionId, state.userId]);
   
   // Save progress when total stats change
   useEffect(() => {
@@ -246,6 +250,22 @@ const MotorChallenge = () => {
       totalStats: newTotalStats 
     });
     
+    // CRITICAL: Send motor tracking data to backend
+    if (motorTrackerRef.current) {
+      try {
+        await motorTrackerRef.current.trackRoundComplete({
+          hits: finalRoundStats.hits,
+          misses: finalRoundStats.misses,
+          escaped: finalRoundStats.misses,
+          duration: currentPattern.duration,
+          averageReactionTime: 0, // Could calculate from tracked interactions
+        });
+        console.log('✅ Motor tracking data sent for round', currentRound);
+      } catch (error) {
+        console.error('❌ Failed to send motor tracking data:', error);
+      }
+    }
+    
     bubblesRef.current = [];
     setBubbles([]);
     
@@ -270,7 +290,8 @@ const MotorChallenge = () => {
       hits: stats.hits, 
       misses: stats.misses, 
       bestStreak: stats.bestStreak,
-      accuracy 
+      accuracy,
+      performanceMetrics: finalPerfMetrics,
     });
     
     // Update game stats
@@ -288,6 +309,16 @@ const MotorChallenge = () => {
       await completeModule('reaction');
     } catch (error) {
       console.error('Failed to save results:', error);
+    }
+    
+    // Save performance metrics to session
+    if (sessionId && finalPerfMetrics) {
+      try {
+        await updateSessionPerformance(sessionId, finalPerfMetrics);
+        console.log('✅ Performance metrics saved:', finalPerfMetrics);
+      } catch (error) {
+        console.error('Failed to save performance metrics:', error);
+      }
     }
     
     // Clear progress since test is complete
@@ -440,6 +471,36 @@ const MotorChallenge = () => {
           height={STAGE_HEIGHT}
           ref={stageRef}
           style={{ cursor: 'crosshair' }}
+          onMouseMove={(e) => {
+            if (isPlayingRef.current && motorTrackerRef.current) {
+              motorTrackerRef.current.trackPointerMove(e.evt);
+            }
+          }}
+          onTouchMove={(e) => {
+            if (isPlayingRef.current && motorTrackerRef.current) {
+              motorTrackerRef.current.trackPointerMove(e.evt);
+            }
+          }}
+          onMouseDown={(e) => {
+            if (motorTrackerRef.current) {
+              motorTrackerRef.current.trackPointerDownState(e.evt);
+            }
+          }}
+          onMouseUp={(e) => {
+            if (motorTrackerRef.current) {
+              motorTrackerRef.current.trackPointerUpState(e.evt);
+            }
+          }}
+          onTouchStart={(e) => {
+            if (motorTrackerRef.current) {
+              motorTrackerRef.current.trackPointerDownState(e.evt);
+            }
+          }}
+          onTouchEnd={(e) => {
+            if (motorTrackerRef.current) {
+              motorTrackerRef.current.trackPointerUpState(e.evt);
+            }
+          }}
         >
           <Layer>
             {/* Background */}

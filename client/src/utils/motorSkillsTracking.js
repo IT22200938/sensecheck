@@ -1,20 +1,19 @@
 /**
  * Enhanced Motor Skills Tracking
  * Comprehensive tracking for the bubble-pop game
- * Uses ML-ready GlobalInteractionBucket for storage
  */
 
 import { 
-  logGlobalInteractions, 
-  logPointerSamples, 
+  logPointerSamples,
   logMotorAttempts,
   computeRoundSummary,
   computeSessionSummary,
 } from './api';
 
 class MotorSkillsTracker {
-  constructor(sessionId) {
+  constructor(sessionId, userId = null) {
     this.sessionId = sessionId;
+    this.userId = userId;
     this.participantId = this.getOrCreateParticipantId();
     this.interactions = [];
     this.touchStartTimes = new Map();
@@ -24,11 +23,25 @@ class MotorSkillsTracker {
     this.trajectoryPoints = [];
     this.round = 1;
     
+    // Pointer samples buffer for kinematics
+    this.pointerSamples = [];
+    this.lastSampleTime = 0;
+    this.SAMPLE_INTERVAL = 16; // ~60Hz sampling
+    this.isPointerDown = false;
+    
     // Batching for performance
     this.interactionBuffer = [];
     this.BATCH_SIZE = 10;
     this.BATCH_TIMEOUT = 2000; // 2 seconds
     this.batchTimer = null;
+    
+    console.log(`🎮 MotorSkillsTracker initialized: sessionId=${sessionId}, userId=${userId}`);
+  }
+  
+  // Set userId after initialization (if not available at construction time)
+  setUserId(userId) {
+    this.userId = userId;
+    console.log(`🎮 MotorSkillsTracker userId set: ${userId}`);
   }
   
   // Get or create stable participant ID
@@ -83,7 +96,24 @@ class MotorSkillsTracker {
     const now = Date.now();
     const coords = this.getCoordinates(event);
     
-    // Always log pointer position for feature extraction (even on first move)
+    // Store normalized pointer sample at ~60Hz for kinematics
+    if (now - this.lastSampleTime >= this.SAMPLE_INTERVAL) {
+      const screenWidth = window.innerWidth;
+      const screenHeight = window.innerHeight;
+      
+      this.pointerSamples.push({
+        round: this.round,
+        tms: now,
+        x: coords.x / screenWidth,  // Normalized 0-1
+        y: coords.y / screenHeight, // Normalized 0-1
+        isDown: this.isPointerDown,
+        pointerType: event.pointerType || (event.touches ? 'touch' : 'mouse'),
+      });
+      
+      this.lastSampleTime = now;
+    }
+    
+    // Calculate velocity and acceleration for local tracking
     if (this.lastPosition) {
       const dt = now - (this.trajectoryPoints[this.trajectoryPoints.length - 1]?.time || now);
       if (dt > 0) {
@@ -116,30 +146,20 @@ class MotorSkillsTracker {
           velocity,
           acceleration,
         });
-        
-        // Calculate jerkiness (change in acceleration)
-        const jerkiness = this.calculateJerkiness();
-        
-        this.logInteraction('pointer_move', {
-          coordinates: coords,
-          velocity: parseFloat(velocity.toFixed(2)),
-          acceleration: parseFloat(acceleration.toFixed(2)),
-          jerkiness: parseFloat(jerkiness.toFixed(2)),
-          round: this.round,
-        });
       }
-    } else {
-      // First pointer move - log it with zero velocity
-      this.logInteraction('pointer_move', {
-        coordinates: coords,
-        velocity: 0,
-        acceleration: 0,
-        jerkiness: 0,
-        round: this.round,
-      });
     }
     
     this.lastPosition = coords;
+  }
+  
+  // Track pointer down state
+  trackPointerDownState(event) {
+    this.isPointerDown = true;
+  }
+  
+  // Track pointer up state
+  trackPointerUpState(event) {
+    this.isPointerDown = false;
   }
 
   // Track pointer up (end of tap/click)
@@ -265,6 +285,7 @@ class MotorSkillsTracker {
   async sendRoundDataToML(round) {
     console.log(`🔍 sendRoundDataToML called for round ${round}`);
     console.log(`   Total interactions tracked: ${this.interactions.length}`);
+    console.log(`   Pointer samples collected: ${this.pointerSamples.length}`);
     
     // Debug: Show what event types we have
     const eventTypes = {};
@@ -273,34 +294,16 @@ class MotorSkillsTracker {
     });
     console.log(`   Event types:`, eventTypes);
     
-    // Extract pointer traces for this round
-    const roundMoves = this.interactions.filter(i => 
-      i.eventType === 'pointer_move' && i.round === round
-    );
+    // Send pointer samples for this round
+    const roundSamples = this.pointerSamples.filter(s => s.round === round);
+    console.log(`   Pointer samples for round ${round}: ${roundSamples.length}`);
     
-    console.log(`   Pointer moves for round ${round}: ${roundMoves.length}`);
-    
-    if (roundMoves.length > 0) {
-      const pointerSamples = roundMoves.map(event => {
-        const screenWidth = window.innerWidth;
-        const screenHeight = window.innerHeight;
-        
-        return {
-          round: event.round,
-          tms: event.timestamp ? new Date(event.timestamp).getTime() : Date.now(),
-          x: (event.coordinates?.x || 0) / screenWidth,
-          y: (event.coordinates?.y || 0) / screenHeight,
-          isDown: false,
-          pointerType: 'mouse',
-        };
-      });
-      
+    if (roundSamples.length > 0) {
       try {
-        await logPointerSamples(this.sessionId, pointerSamples);
-        console.log(`📊 Sent ${pointerSamples.length} pointer samples for round ${round}`);
+        await logPointerSamples(this.sessionId, this.userId, roundSamples);
+        console.log(`📍 Sent ${roundSamples.length} pointer samples for round ${round}`);
       } catch (error) {
         console.error(`❌ Error sending pointer samples for round ${round}:`, error);
-        console.error('Sample data:', pointerSamples.slice(0, 2)); // Show first 2 samples
       }
     }
     
@@ -343,12 +346,32 @@ class MotorSkillsTracker {
           });
         }
         
+        // Get reaction time - use explicit check for undefined/null to preserve 0
+        const reactionTimeMs = event.reactionTime !== undefined && event.reactionTime !== null 
+          ? event.reactionTime 
+          : null;
+        
+        // Get click accuracy - same handling for 0 values
+        const errorDistNorm = event.clickAccuracy !== undefined && event.clickAccuracy !== null
+          ? event.clickAccuracy / minDim  // Normalize by min dimension
+          : null;
+        
+        // Debug logging for first attempt
+        if (idx === 0) {
+          console.log(`   📊 Attempt timing data:`, {
+            reactionTime: event.reactionTime,
+            spawnTime: event.spawnTime,
+            clickAccuracy: event.clickAccuracy,
+            timestamp: event.timestamp,
+          });
+        }
+        
         return {
           round: event.round,
           attemptId: `r${event.round}_${event.bubbleId || 'unknown'}`,
           bubbleId: event.bubbleId || 'unknown',
           spawnTms: event.spawnTime || 0,
-          column: event.column !== undefined ? event.column : null, // Preserve null/undefined
+          column: event.column !== undefined ? event.column : null,
           speedNorm: event.bubbleSpeed ? event.bubbleSpeed / minDim : 0,
           
           target: {
@@ -367,21 +390,21 @@ class MotorSkillsTracker {
           },
           
           timing: {
-            reactionTimeMs: event.reactionTime || null,
+            reactionTimeMs,
           },
           
           spatial: {
-            errorDistNorm: event.clickAccuracy || null,
+            errorDistNorm,
           },
         };
       });
       
       try {
-        await logMotorAttempts(this.sessionId, attempts);
+        await logMotorAttempts(this.sessionId, this.userId, attempts);
         console.log(`🎯 Sent ${attempts.length} attempts for round ${round}`);
       } catch (error) {
         console.error(`❌ Error sending attempts for round ${round}:`, error);
-        console.error('Error details:', error.response?.data || error.message);
+        console.error('Error response:', error.response?.data || error.message);
         console.error('Sample attempt:', attempts.slice(0, 1)); // Show first attempt
       }
     }
@@ -476,7 +499,7 @@ class MotorSkillsTracker {
     }
   }
 
-  // Helper: Flush batch to backend
+  // Helper: Flush batch to backend (clears buffer for next batch)
   async flushBatch() {
     if (this.interactionBuffer.length === 0) return;
     
@@ -488,15 +511,9 @@ class MotorSkillsTracker {
       this.batchTimer = null;
     }
     
-    try {
-      // Use ML-ready global interactions endpoint with module='motorSkills'
-      await logGlobalInteractions(this.sessionId, batch);
-      console.log(`📦 Flushed ${batch.length} motor skill interactions (ML-ready)`);
-    } catch (error) {
-      console.error('Error flushing motor skills batch:', error);
-      // Re-add to buffer on error
-      this.interactionBuffer.unshift(...batch);
-    }
+    // Motor interactions are now stored via sendRoundDataToML() which uses
+    // logMotorAttempts - no global batch endpoint needed
+    console.log(`📦 Cleared ${batch.length} motor skill interactions from buffer`);
   }
 
   // Helper: Log interaction

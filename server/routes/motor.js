@@ -20,7 +20,7 @@ const router = express.Router();
 /**
  * @route   POST /api/motor/trace
  * @desc    Log pointer trace samples (batch)
- * @body    { sessionId, samples: [{round, tms, x, y, ...}] }
+ * @body    { sessionId, userId, samples: [{round, tms, x, y, ...}] }
  */
 router.post('/trace', logPointerSamples);
 

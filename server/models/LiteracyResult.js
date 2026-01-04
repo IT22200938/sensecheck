@@ -13,23 +13,16 @@ const questionResponseSchema = new mongoose.Schema({
   correctAnswer: String,
   isCorrect: Boolean,
   responseTime: Number, // milliseconds
-  focusShifts: Number,
-  hoverEvents: [{
-    option: String,
-    duration: Number,
-    timestamp: Date,
-  }],
-  interactions: [{
-    eventType: String,
-    timestamp: Date,
-    target: String,
-  }],
 }, { _id: false });
 
 const literacyResultSchema = new mongoose.Schema({
   sessionId: {
     type: String,
     required: true,
+    index: true,
+  },
+  userId: {
+    type: String,
     index: true,
   },
   completedAt: {
@@ -39,28 +32,23 @@ const literacyResultSchema = new mongoose.Schema({
   
   responses: [questionResponseSchema],
   
-  // Computed Scores
+  // Score as decimal (0.0 - 1.0)
   score: {
-    correctAnswers: Number,
-    totalQuestions: Number,
-    percentage: Number,
-    timeFactor: Number, // bonus/penalty based on speed
-    computerLiteracyScore: Number, // CLS = correct + timeFactor
+    type: Number,
+    min: 0,
+    max: 1,
   },
   
-  // Performance Metrics
-  metrics: {
-    totalTime: Number, // milliseconds
-    averageResponseTime: Number,
-    totalFocusShifts: Number,
-    totalHoverEvents: Number,
-  },
+  // Raw counts
+  correctAnswers: Number,
+  totalQuestions: Number,
   
-  // Category Breakdown
+  // Category Breakdown with decimal scores
   categoryScores: [{
-    category: String, // e.g., "icons", "terminology", "navigation"
+    category: String, // e.g., "icons", "terminology", "interaction"
     correct: Number,
     total: Number,
+    score: Number, // Decimal score (0.0 - 1.0)
   }],
 });
 

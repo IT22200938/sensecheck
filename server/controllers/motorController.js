@@ -14,7 +14,7 @@ import { logger } from '../services/logging/logger.js';
  */
 export const logPointerSamples = async (req, res) => {
   try {
-    const { sessionId, samples } = req.body;
+    const { sessionId, userId, samples } = req.body;
 
     if (!sessionId || !Array.isArray(samples) || samples.length === 0) {
       return res.status(400).json({
@@ -23,7 +23,7 @@ export const logPointerSamples = async (req, res) => {
       });
     }
 
-    const bucket = await MotorPointerTraceBucket.addSamples(sessionId, samples);
+    const bucket = await MotorPointerTraceBucket.addSamples(sessionId, userId, samples);
 
     logger.info('Pointer samples logged', {
       sessionId,
@@ -93,7 +93,7 @@ export const getPointerSamples = async (req, res) => {
  */
 export const logAttempts = async (req, res) => {
   try {
-    const { sessionId, attempts } = req.body;
+    const { sessionId, userId, attempts } = req.body;
 
     if (!sessionId || !Array.isArray(attempts) || attempts.length === 0) {
       return res.status(400).json({
@@ -102,7 +102,7 @@ export const logAttempts = async (req, res) => {
       });
     }
 
-    const bucket = await MotorAttemptBucket.addAttempts(sessionId, attempts);
+    const bucket = await MotorAttemptBucket.addAttempts(sessionId, userId, attempts);
 
     logger.info('Motor attempts logged', {
       sessionId,
@@ -203,6 +203,11 @@ export const computeRoundSummary = async (req, res) => {
       });
     }
 
+    // Get session to retrieve userId
+    const Session = (await import('../models/Session.js')).default;
+    const session = await Session.findOne({ sessionId });
+    const userId = session?.userId || null;
+
     // Compute features for this round
     const features = await computeRoundFeatures(sessionId, round);
 
@@ -218,6 +223,7 @@ export const computeRoundSummary = async (req, res) => {
       { sessionId, round },
       {
         sessionId,
+        userId,
         participantId,
         round,
         counts: {
@@ -265,6 +271,11 @@ export const computeSessionSummary = async (req, res) => {
       });
     }
 
+    // Get session to retrieve userId
+    const Session = (await import('../models/Session.js')).default;
+    const session = await Session.findOne({ sessionId });
+    const userId = session?.userId || null;
+
     // Compute features across all rounds
     const features = await computeSessionFeatures(sessionId);
 
@@ -273,6 +284,7 @@ export const computeSessionSummary = async (req, res) => {
       { sessionId },
       {
         sessionId,
+        userId,
         participantId,
         features,
         featureVersion: 'v1',

@@ -1,13 +1,86 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useGame, PROFILE_TRAITS } from '../../context/GameContext';
+import useDeviceInfo from '../../hooks/useDeviceInfo';
+import { buildAndSaveImpairmentProfile } from '../../utils/impairmentProfile';
+import { saveDeviceContext } from '../../utils/api';
 import logo from '../../resources/logo.png';
 
 const FinalProfile = () => {
   const navigate = useNavigate();
   const { state, elapsedTime, resetGame } = useGame();
+  const deviceInfo = useDeviceInfo();
   const [showContent, setShowContent] = useState(false);
   const [celebratePhase, setCelebratePhase] = useState(0);
+  const [profileSaved, setProfileSaved] = useState(false);
+  const saveAttemptedRef = useRef(false);
+  
+  // Save impairment profile and device context when component mounts
+  useEffect(() => {
+    const saveData = async () => {
+      // Prevent duplicate saves
+      if (saveAttemptedRef.current) return;
+      
+      // Use userId and sessionId from game state (set during intro)
+      const userId = state.userId;
+      const sessionId = state.sessionId;
+      
+      if (!userId || !sessionId) {
+        console.warn('⚠️ Missing userId or sessionId, skipping profile save');
+        return;
+      }
+      
+      // Wait for deviceInfo to be properly populated (not initial 'unknown' values)
+      const os = deviceInfo.device?.os;
+      const browser = deviceInfo.device?.browser;
+      
+      if (!os || os === 'unknown' || !browser || browser === 'unknown') {
+        console.log('⏳ Waiting for device info to be populated...', { os, browser });
+        return; // Will re-run when deviceInfo updates
+      }
+      
+      // Mark as attempted to prevent future runs
+      saveAttemptedRef.current = true;
+      
+      try {
+        // Save impairment profile with properly parsed device info
+        console.log('📊 Challenge results:', state.challengeResults);
+        console.log('📱 Device info:', deviceInfo);
+        
+        await buildAndSaveImpairmentProfile({
+          userId,
+          sessionId,
+          challengeResults: state.challengeResults,
+          stats: state.stats,
+          deviceInfo: {
+            os: os,
+            browser: browser,
+            screenWidth: deviceInfo.screen?.width || window.screen.width,
+            screenHeight: deviceInfo.screen?.height || window.screen.height,
+            devicePixelRatio: deviceInfo.screen?.dpr || window.devicePixelRatio || 1,
+          },
+        });
+        console.log('✅ Impairment profile saved successfully');
+        
+        // Save device context
+        await saveDeviceContext({
+          user_id: userId,
+          session_id: sessionId,
+          captured_at: new Date().toISOString(),
+          viewportWidth: deviceInfo.viewportWidth || window.innerWidth,
+          viewportHeight: deviceInfo.viewportHeight || window.innerHeight,
+          devicePixelRatio: deviceInfo.devicePixelRatio || window.devicePixelRatio || 1,
+        });
+        console.log('✅ Device context saved successfully');
+        
+        setProfileSaved(true);
+      } catch (error) {
+        console.error('❌ Failed to save profile data:', error);
+      }
+    };
+    
+    saveData();
+  }, [state.challengeResults, state.stats, state.userId, state.sessionId, deviceInfo]);
   
   useEffect(() => {
     setTimeout(() => setShowContent(true), 300);
@@ -95,7 +168,13 @@ const FinalProfile = () => {
           </div>
           
           <h1 className="text-3xl font-black text-white mb-2">You Did It!</h1>
-          <p className="text-xl font-semibold" style={{ color: playerTitle.color }}>{playerTitle.title}</p>
+          <p className="text-xl font-semibold mb-3" style={{ color: playerTitle.color }}>{playerTitle.title}</p>
+          {state.userId && (
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gray-800/60 border border-gray-700">
+              <span className="text-gray-400 text-sm">Player</span>
+              <span className="font-mono font-bold text-white">{state.userId}</span>
+            </div>
+          )}
         </div>
         
         {/* Main Card */}
