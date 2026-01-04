@@ -244,13 +244,7 @@ const MotorChallenge = () => {
     const newTotalStats = { ...totalStatsRef.current };
     setDisplayTotalStats(newTotalStats);
     
-    console.log('🎯 Round ended:', { 
-      round: currentRound,
-      roundStats: finalRoundStats, 
-      totalStats: newTotalStats 
-    });
-    
-    // CRITICAL: Send motor tracking data to backend
+    // Send motor tracking data to backend
     if (motorTrackerRef.current) {
       try {
         await motorTrackerRef.current.trackRoundComplete({
@@ -258,11 +252,10 @@ const MotorChallenge = () => {
           misses: finalRoundStats.misses,
           escaped: finalRoundStats.misses,
           duration: currentPattern.duration,
-          averageReactionTime: 0, // Could calculate from tracked interactions
+          averageReactionTime: 0,
         });
-        console.log('✅ Motor tracking data sent for round', currentRound);
       } catch (error) {
-        console.error('❌ Failed to send motor tracking data:', error);
+        // Continue even if tracking fails
       }
     }
     
@@ -286,14 +279,6 @@ const MotorChallenge = () => {
       ? Math.round((stats.hits / (stats.hits + stats.misses)) * 100) 
       : 0;
     
-    console.log('🏁 Challenge complete:', { 
-      hits: stats.hits, 
-      misses: stats.misses, 
-      bestStreak: stats.bestStreak,
-      accuracy,
-      performanceMetrics: finalPerfMetrics,
-    });
-    
     // Update game stats
     updateStats({
       totalCorrect: stats.hits,
@@ -315,9 +300,8 @@ const MotorChallenge = () => {
     if (sessionId && finalPerfMetrics) {
       try {
         await updateSessionPerformance(sessionId, finalPerfMetrics);
-        console.log('✅ Performance metrics saved:', finalPerfMetrics);
       } catch (error) {
-        console.error('Failed to save performance metrics:', error);
+        // Continue even if metrics save fails
       }
     }
     

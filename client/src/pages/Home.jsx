@@ -18,7 +18,6 @@ const Home = () => {
   // Load session data and check if user info has been collected
   useEffect(() => {
     const initializeSession = async () => {
-      console.log('🏠 Home page: Loading session data...');
       await loadSessionData();
       
       const infoCollected = sessionStorage.getItem('sensecheck_user_info_collected');

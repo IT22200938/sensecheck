@@ -39,3 +39,6 @@ coverage/
 *.seed
 *.pid.lock
 
+# ML Export files (generated)
+server/ml-export-*.csv
+

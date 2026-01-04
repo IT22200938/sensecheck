@@ -46,13 +46,6 @@ const calculateAdaptiveSizes = () => {
     sizes.push(Math.round(level1Size - (level1Size - level7Size) * (i / 6)));
   }
   
-  // Detailed logging for debugging
-  console.log(`🦅 Visual Acuity Calibration:`);
-  console.log(`   DPR: ${dpr} → PPI: ${ppi}`);
-  console.log(`   20/20 at 50cm: ${physicalSizeMM.toFixed(3)}mm = ${calculated2020Pixels.toFixed(1)}px (calculated)`);
-  console.log(`   20/20 threshold used: ${twentyTwentyPixels}px ${calculated2020Pixels < MIN_LEGIBLE_SIZE_PX ? '(clamped to min 10px)' : '(from calculation)'}`);
-  console.log(`   Test sizes: ${sizes.join(' → ')}px`);
-  
   return { 
     sizes, 
     twentyTwentyPixels, 
@@ -187,15 +180,6 @@ const AcuityChallenge = () => {
       : metrics.visualAcuityDecimal >= 0.8 ? '20/25 (Near Perfect)'
       : metrics.visualAcuityDecimal >= 0.5 ? '20/40 (Normal)'
       : '20/60+ (Below Average)';
-    
-    console.log(`🦅 Vision Test Complete:`, {
-      finalLevel,
-      finalSize,
-      twentyTwentyThreshold: twentyTwentyPixels,
-      visualAcuityDecimal: metrics.visualAcuityDecimal,
-      visionLoss: metrics.visionLoss,
-      snellenEstimate: metrics.snellenEstimate,
-    });
     
     const resultsData = {
       attempts: allAttempts,

@@ -6,7 +6,7 @@ class AuraIntegration {
     this.userId = null;
     this.token = null;
     this.isAuraMode = false;
-    this.auraAPI = 'http://localhost:3000/api/onboarding';
+    this.auraAPI = import.meta.env.VITE_AURA_API_URL || 'http://localhost:3000/api/onboarding';
     
     this.initialize();
   }
@@ -22,12 +22,6 @@ class AuraIntegration {
       console.error('AURA mode enabled but missing userId or token');
       this.showError('Invalid onboarding link. Please register again.');
     }
-    
-    console.log('🌟 AURA Integration initialized:', {
-      isAuraMode: this.isAuraMode,
-      userId: this.userId ? 'present' : 'missing',
-      token: this.token ? 'present' : 'missing',
-    });
   }
   
   showError(message) {
@@ -76,8 +70,6 @@ class AuraIntegration {
   async startSession(deviceInfo) {
     if (!this.isEnabled()) return null;
     
-    console.log('🚀 Starting AURA onboarding session');
-    
     return await this.callAuraAPI('start', {
       device: deviceInfo.device,
       screen: deviceInfo.screen,
@@ -90,8 +82,6 @@ class AuraIntegration {
   async saveMotorResults(attempts, roundSummaries, overallMetrics) {
     if (!this.isEnabled()) return null;
     
-    console.log('💪 Saving motor skills results to AURA');
-    
     return await this.callAuraAPI('motor', {
       attempts,
       roundSummaries,
@@ -102,8 +92,6 @@ class AuraIntegration {
   // Save literacy results
   async saveLiteracyResults(responses, score, metrics, categoryScores) {
     if (!this.isEnabled()) return null;
-    
-    console.log('📚 Saving literacy results to AURA');
     
     return await this.callAuraAPI('literacy', {
       responses,
@@ -117,8 +105,6 @@ class AuraIntegration {
   async saveVisionResults(colorBlindness, visualAcuity, testConditions) {
     if (!this.isEnabled()) return null;
     
-    console.log('👁️ Saving vision results to AURA');
-    
     return await this.callAuraAPI('vision', {
       colorBlindness,
       visualAcuity,
@@ -129,8 +115,6 @@ class AuraIntegration {
   // Complete onboarding
   async completeOnboarding() {
     if (!this.isEnabled()) return null;
-    
-    console.log('✅ Completing AURA onboarding');
     
     const result = await this.callAuraAPI('complete', {});
     

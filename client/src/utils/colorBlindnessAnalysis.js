@@ -145,15 +145,6 @@ export const analyzeColorBlindness = (plates) => {
     diagnosis = 'Suspected Color Deficiency';
   }
 
-  console.log('🎨 Color Vision Analysis:', {
-    totalPlates,
-    normalVisionCount,
-    colorBlindCount,
-    colorVisionScore,
-    colorBlindnessScore,
-    diagnosis
-  });
-
   return {
     // Primary decimal score (0.0 to 1.0) - measures normal color vision
     colorVisionScore,

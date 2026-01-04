@@ -170,30 +170,9 @@ motorAttemptBucketSchema.statics.addAttempts = async function(sessionId, userId,
     throw new Error(`Session with sessionId "${sessionId}" does not exist.`);
   }
   
-  console.log(`📊 addAttempts called: sessionId=${sessionId}, userId=${userId}, attempts=${attemptsArray.length}`);
-  
-  // Debug: Show first attempt structure with timing/spatial data
-  if (attemptsArray.length > 0) {
-    const sample = attemptsArray[0];
-    console.log(`   Sample attempt structure:`, {
-      round: sample.round,
-      bubbleId: sample.bubbleId,
-      column: sample.column,
-      spawnTms: sample.spawnTms,
-      clickTms: sample.click?.tms,
-      hasTarget: !!sample.target,
-      targetCoords: sample.target ? `(${sample.target.x.toFixed(3)}, ${sample.target.y.toFixed(3)})` : 'N/A',
-      // Timing and spatial from frontend
-      timingFromFrontend: sample.timing,
-      spatialFromFrontend: sample.spatial,
-    });
-  }
-  
   // Get pointer samples for kinematics/Fitts computation
   const MotorPointerTraceBucket = mongoose.model('MotorPointerTraceBucket');
   const allSamples = await MotorPointerTraceBucket.getSessionSamples(sessionId);
-  
-  console.log(`   📍 Pointer samples available: ${allSamples.length}`);
   
   // Import feature extraction utility
   const { extractAttemptFeatures } = await import('../utils/featureExtraction.js');
@@ -216,16 +195,6 @@ motorAttemptBucketSchema.statics.addAttempts = async function(sessionId, userId,
           prevClickTms,
         });
         
-        if (idx === 0) {
-          console.log(`   ✅ Full kinematics computed for first attempt:`, {
-            reactionTimeMs: features.timing?.reactionTimeMs,
-            movementTimeMs: features.timing?.movementTimeMs,
-            meanSpeed: features.kinematics?.meanSpeed?.toFixed(4),
-            peakSpeed: features.kinematics?.peakSpeed?.toFixed(4),
-            jerkRMS: features.kinematics?.jerkRMS?.toFixed(4),
-            throughput: features.fitts?.throughput?.toFixed(4),
-          });
-        }
       } catch (err) {
         console.error(`⚠️ Error extracting features for attempt ${attempt.attemptId}:`, err.message);
         // Fall back to basic features
@@ -234,10 +203,6 @@ motorAttemptBucketSchema.statics.addAttempts = async function(sessionId, userId,
     } else {
       // No pointer samples or missed bubble - use basic features
       features = buildBasicFeatures(attempt, prevClickTms);
-      
-      if (idx === 0) {
-        console.log(`   ⚠️ Using basic features (no pointer samples or missed bubble)`);
-      }
     }
     
     // Merge attempt with computed features

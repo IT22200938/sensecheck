@@ -2,6 +2,9 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import mongoose from 'mongoose';
+import helmet from 'helmet';
+import compression from 'compression';
+import rateLimit from 'express-rate-limit';
 import { logger } from './services/logging/logger.js';
 import { requestLogger } from './middleware/requestLogger.js';
 import { errorHandler } from './middleware/errorHandler.js';
@@ -16,9 +19,37 @@ dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 5000;
+const isProduction = process.env.NODE_ENV === 'production';
 
-// Middleware
-app.use(cors());
+// Security middleware
+app.use(helmet({
+  crossOriginEmbedderPolicy: false, // Allow embedding for game assets
+  contentSecurityPolicy: isProduction ? undefined : false, // Disable CSP in development
+}));
+
+// Rate limiting
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: isProduction ? 100 : 1000, // Limit requests per window (more lenient in dev)
+  message: { error: 'Too many requests, please try again later.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+app.use('/api/', limiter);
+
+// Compression for better performance
+app.use(compression());
+
+// CORS configuration
+const corsOptions = {
+  origin: isProduction 
+    ? process.env.ALLOWED_ORIGINS?.split(',') || true
+    : true,
+  credentials: true,
+};
+app.use(cors(corsOptions));
+
+// Body parsing
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 app.use(requestLogger);
@@ -44,10 +75,7 @@ app.use(errorHandler);
 // MongoDB Connection
 const connectDB = async () => {
   try {
-    await mongoose.connect(process.env.MONGODB_URI, {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
-    });
+    await mongoose.connect(process.env.MONGODB_URI);
     logger.info('MongoDB connected successfully');
   } catch (error) {
     logger.error('MongoDB connection error:', error);
@@ -62,7 +90,6 @@ const startServer = async () => {
   app.listen(PORT, () => {
     logger.info(`Server running on port ${PORT}`);
     logger.info(`Environment: ${process.env.NODE_ENV}`);
-    console.log(`🚀 Server running on http://localhost:${PORT}`);
   });
 };
 

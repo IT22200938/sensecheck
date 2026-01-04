@@ -270,7 +270,6 @@ export function GameProvider({ children }) {
         const parsedState = JSON.parse(saved);
         // Only restore if game was actually started
         if (parsedState.startTime && parsedState.currentPhase !== 'intro') {
-          console.log('🔄 Restoring game session:', parsedState.currentPhase);
           dispatch({ type: ACTIONS.LOAD_SAVED_STATE, payload: parsedState });
         }
       }
@@ -294,7 +293,6 @@ export function GameProvider({ children }) {
           challengeProgress: state.challengeProgress,
           startTime: state.startTime,
         }));
-        console.log('💾 Game state saved:', state.currentPhase);
       } catch (e) {
         console.error('Failed to save game state:', e);
       }

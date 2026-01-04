@@ -127,8 +127,6 @@ motorPointerTraceBucketSchema.statics.addSamples = async function(sessionId, use
     throw new Error(`Session with sessionId "${sessionId}" does not exist.`);
   }
   
-  console.log(`📍 addSamples called: sessionId=${sessionId}, userId=${userId}, samples=${samplesArray.length}`);
-  
   // Find current active bucket
   let bucket = await this.findOne({
     sessionId,
@@ -178,8 +176,6 @@ motorPointerTraceBucketSchema.statics.addSamples = async function(sessionId, use
   }
   
   await bucket.save();
-  
-  console.log(`   ✅ Stored ${samplesArray.length} samples in bucket ${bucket.bucketNumber}`);
   
   return bucket;
 };

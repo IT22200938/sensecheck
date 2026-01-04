@@ -223,11 +223,9 @@ const useStore = create((set, get) => ({
     
     // Save to backend
     try {
-      console.log(`🎉 Completing module: ${moduleName} for session: ${sessionId}`);
       const response = await updateModuleCompletion(sessionId, moduleName);
-      console.log('✅ Module completion saved to backend:', response);
     } catch (error) {
-      console.error('❌ Failed to save module completion to backend:', error);
+      console.error('Failed to save module completion to backend:', error);
       throw error; // Re-throw to let caller handle it
     }
     
@@ -240,8 +238,6 @@ const useStore = create((set, get) => ({
       }],
       currentModule: null,
     }));
-    
-    console.log('✅ Local state updated. Completed modules:', get().completedModules);
   },
   
   // Load session data from backend
@@ -249,17 +245,10 @@ const useStore = create((set, get) => ({
     const state = get();
     const sessionId = state.sessionId;
     
-    console.log(`🔄 Loading session data for: ${sessionId}`);
-    
     try {
       const response = await getSessionResults(sessionId);
       if (response.success && response.data.session) {
         const session = response.data.session;
-        
-        console.log('✅ Session loaded:', {
-          completedModules: session.completedModules,
-          userInfo: session.userInfo,
-        });
         
         // Update completed modules from backend
         set({
@@ -269,11 +258,9 @@ const useStore = create((set, get) => ({
         return session;
       }
     } catch (error) {
-      // Session might not exist yet, that's okay
-      if (error.response?.status === 404) {
-        console.log('ℹ️ No existing session found, starting fresh');
-      } else {
-        console.error('❌ Error loading session:', error);
+      // Session might not exist yet, that's okay - silently continue
+      if (error.response?.status !== 404) {
+        console.error('Error loading session:', error);
       }
     }
     return null;

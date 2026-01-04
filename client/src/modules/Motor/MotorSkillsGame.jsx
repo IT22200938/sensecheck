@@ -89,7 +89,6 @@ const MotorSkillsGame = () => {
   useEffect(() => {
     if (!motorTrackerRef.current && sessionId) {
       motorTrackerRef.current = new MotorSkillsTracker(sessionId);
-      console.log('🎯 Motor skills enhanced tracking initialized');
     }
   }, [sessionId]);
   
@@ -261,14 +260,9 @@ const MotorSkillsGame = () => {
             const nowReceding = curr > prev1;
             const nearTarget = curr < BUBBLE_RADIUS * 4; // Within 4x radius (~100px)
             
-            // Log every 500ms OR when overshoot detected
-            const now = Date.now();
+            // Detect overshoot
             if (wasApproaching && nowReceding && nearTarget) {
-              console.log(`🎯 OVERSHOOT DETECTED! Distance: ${curr.toFixed(1)}px (was ${prev1.toFixed(1)}px, now ${curr.toFixed(1)}px)`);
               distanceHistoryRef.current = []; // Reset to avoid double-counting
-            } else if (now - lastDebugLogRef.current > 500 && nearTarget) {
-              console.log(`📍 Near bubble: ${minDist.toFixed(1)}px (threshold: ${(BUBBLE_RADIUS * 4).toFixed(1)}px)`);
-              lastDebugLogRef.current = now;
             }
           }
         }
@@ -305,7 +299,6 @@ const MotorSkillsGame = () => {
     // Start performance tracking on first round
     if (currentRound === 1) {
       perfMetrics.startTracking();
-      console.log('📊 Performance tracking started');
     }
 
     // Start spawning bubbles
@@ -412,14 +405,11 @@ const MotorSkillsGame = () => {
     // Stop performance tracking and get final metrics
     const finalPerfMetrics = perfMetrics.stopTracking();
     perfMetricsRef.current = finalPerfMetrics;
-    console.log('📊 Performance metrics:', finalPerfMetrics);
     
     // Flush remaining motor skills interactions
     if (motorTrackerRef.current) {
       try {
         await motorTrackerRef.current.complete();
-        const totalInteractions = motorTrackerRef.current.getAllInteractions().length;
-        console.log(`🎯 Motor skills tracking complete: ${totalInteractions} enhanced events tracked`);
       } catch (error) {
         console.error('Error completing motor skills tracking:', error);
       }
@@ -429,7 +419,6 @@ const MotorSkillsGame = () => {
     try {
       const { updateSessionPerformance } = await import('../../utils/api');
       await updateSessionPerformance(sessionId, finalPerfMetrics);
-      console.log('📊 Performance metrics saved to session');
     } catch (error) {
       console.error('Error saving performance metrics:', error);
       // Continue even if saving fails

@@ -26,7 +26,6 @@ const FinalProfile = () => {
       const sessionId = state.sessionId;
       
       if (!userId || !sessionId) {
-        console.warn('⚠️ Missing userId or sessionId, skipping profile save');
         return;
       }
       
@@ -35,7 +34,6 @@ const FinalProfile = () => {
       const browser = deviceInfo.device?.browser;
       
       if (!os || os === 'unknown' || !browser || browser === 'unknown') {
-        console.log('⏳ Waiting for device info to be populated...', { os, browser });
         return; // Will re-run when deviceInfo updates
       }
       
@@ -43,10 +41,6 @@ const FinalProfile = () => {
       saveAttemptedRef.current = true;
       
       try {
-        // Save impairment profile with properly parsed device info
-        console.log('📊 Challenge results:', state.challengeResults);
-        console.log('📱 Device info:', deviceInfo);
-        
         await buildAndSaveImpairmentProfile({
           userId,
           sessionId,
@@ -60,7 +54,6 @@ const FinalProfile = () => {
             devicePixelRatio: deviceInfo.screen?.dpr || window.devicePixelRatio || 1,
           },
         });
-        console.log('✅ Impairment profile saved successfully');
         
         // Save device context
         await saveDeviceContext({
@@ -71,11 +64,10 @@ const FinalProfile = () => {
           viewportHeight: deviceInfo.viewportHeight || window.innerHeight,
           devicePixelRatio: deviceInfo.devicePixelRatio || window.devicePixelRatio || 1,
         });
-        console.log('✅ Device context saved successfully');
         
         setProfileSaved(true);
       } catch (error) {
-        console.error('❌ Failed to save profile data:', error);
+        // Profile save failed - continue silently
       }
     };
     

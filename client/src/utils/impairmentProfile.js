@@ -30,14 +30,6 @@ export const buildImpairmentProfile = ({
   const motorSkills = challengeResults?.['motor-skills'];
   const knowledgeQuiz = challengeResults?.['knowledge-quiz'];
   
-  console.log('📊 Building impairment profile with:');
-  console.log('  - Color Blindness:', colorBlindness);
-  console.log('  - Visual Acuity:', visualAcuity);
-  console.log('  - Motor Skills:', motorSkills);
-  console.log('  - Knowledge Quiz:', knowledgeQuiz);
-  console.log('  - Device Info:', deviceInfo);
-  console.log('  - Raw challengeResults keys:', Object.keys(challengeResults || {}));
-  
   // Vision loss from visual acuity (0.0 = no loss, 1.0 = total loss)
   const visionLoss = visualAcuity?.visionLoss ?? 0;
   
@@ -102,9 +94,6 @@ export const buildImpairmentProfile = ({
  */
 export const buildAndSaveImpairmentProfile = async (params) => {
   const profile = buildImpairmentProfile(params);
-  
-  console.log('📊 Impairment Profile:', profile);
-  
   const response = await saveImpairmentProfile(profile);
   return response;
 };

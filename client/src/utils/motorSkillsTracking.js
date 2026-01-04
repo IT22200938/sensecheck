@@ -35,13 +35,11 @@ class MotorSkillsTracker {
     this.BATCH_TIMEOUT = 2000; // 2 seconds
     this.batchTimer = null;
     
-    console.log(`🎮 MotorSkillsTracker initialized: sessionId=${sessionId}, userId=${userId}`);
   }
   
   // Set userId after initialization (if not available at construction time)
   setUserId(userId) {
     this.userId = userId;
-    console.log(`🎮 MotorSkillsTracker userId set: ${userId}`);
   }
   
   // Get or create stable participant ID
@@ -195,8 +193,6 @@ class MotorSkillsTracker {
 
   // Track bubble hit (successful click)
   trackBubbleHit(bubbleData, event) {
-    console.log(`✅ trackBubbleHit called - Bubble ${bubbleData.id}`);
-    
     const now = Date.now();
     const reactionTime = now - bubbleData.spawnTime;
     const coords = this.getCoordinates(event);
@@ -222,8 +218,6 @@ class MotorSkillsTracker {
 
   // Track missed bubble (escaped)
   trackBubbleMiss(bubbleData) {
-    console.log(`❌ trackBubbleMiss called - Bubble ${bubbleData.id}`);
-    
     this.logInteraction('bubble_miss', {
       bubbleId: bubbleData.id,
       column: bubbleData.column,
@@ -237,10 +231,6 @@ class MotorSkillsTracker {
 
   // Track round completion
   async trackRoundComplete(roundData) {
-    console.log(`🎯 trackRoundComplete called for round ${this.round}`);
-    console.log(`   Hits: ${roundData.hits}, Misses: ${roundData.misses}`);
-    console.log(`   Total interactions in buffer: ${this.interactions.length}`);
-    
     const totalAttempts = roundData.hits + roundData.misses;
     const successRate = totalAttempts > 0 ? parseFloat((roundData.hits / totalAttempts * 100).toFixed(2)) : 0;
     
@@ -259,23 +249,21 @@ class MotorSkillsTracker {
     try {
       await this.flushBatch();
     } catch (error) {
-      console.error('Error flushing batch:', error);
+      // Continue even if flush fails
     }
     
     // Send round-specific data to ML schemas
     try {
       await this.sendRoundDataToML(this.round);
     } catch (error) {
-      console.error(`Error sending round ${this.round} data to ML:`, error);
+      // Continue even if ML data send fails
     }
     
     // Compute round summary on backend
     try {
-      const result = await computeRoundSummary(this.sessionId, this.participantId, this.round);
-      console.log(`📊 Round ${this.round} summary computed on backend`, result);
+      await computeRoundSummary(this.sessionId, this.participantId, this.round);
     } catch (error) {
-      console.error(`❌ Error computing round ${this.round} summary:`, error);
-      console.error('Error details:', error.response?.data || error.message);
+      // Continue even if summary computation fails
     }
     
     this.round++;
@@ -283,27 +271,14 @@ class MotorSkillsTracker {
   
   // Send round-specific data to ML schemas
   async sendRoundDataToML(round) {
-    console.log(`🔍 sendRoundDataToML called for round ${round}`);
-    console.log(`   Total interactions tracked: ${this.interactions.length}`);
-    console.log(`   Pointer samples collected: ${this.pointerSamples.length}`);
-    
-    // Debug: Show what event types we have
-    const eventTypes = {};
-    this.interactions.forEach(i => {
-      eventTypes[i.eventType] = (eventTypes[i.eventType] || 0) + 1;
-    });
-    console.log(`   Event types:`, eventTypes);
-    
     // Send pointer samples for this round
     const roundSamples = this.pointerSamples.filter(s => s.round === round);
-    console.log(`   Pointer samples for round ${round}: ${roundSamples.length}`);
     
     if (roundSamples.length > 0) {
       try {
         await logPointerSamples(this.sessionId, this.userId, roundSamples);
-        console.log(`📍 Sent ${roundSamples.length} pointer samples for round ${round}`);
       } catch (error) {
-        console.error(`❌ Error sending pointer samples for round ${round}:`, error);
+        // Continue even if pointer sample send fails
       }
     }
     
@@ -312,40 +287,12 @@ class MotorSkillsTracker {
       (i.eventType === 'bubble_hit' || i.eventType === 'bubble_miss') && i.round === round
     );
     
-    console.log(`   Bubble attempts for round ${round}: ${roundAttempts.length}`);
-    if (roundAttempts.length > 0) {
-      console.log(`   Sample attempt:`, roundAttempts[0]);
-    }
-    
     if (roundAttempts.length > 0) {
       const screenWidth = window.innerWidth;
       const screenHeight = window.innerHeight;
       const minDim = Math.min(screenWidth, screenHeight);
       
       const attempts = roundAttempts.map((event, idx) => {
-        // Validate required fields
-        if (!event.bubbleId) {
-          console.warn(`⚠️ Attempt ${idx} (${event.eventType}) missing bubbleId:`, event);
-        }
-        if (event.column === undefined || event.column === null) {
-          console.warn(`⚠️ Attempt ${idx} (${event.eventType}) missing column. Event:`, {
-            eventType: event.eventType,
-            bubbleId: event.bubbleId,
-            column: event.column,
-            bubblePosition: event.bubblePosition,
-            round: event.round
-          });
-        }
-        if (!event.bubblePosition) {
-          console.warn(`⚠️ Attempt ${idx} (${event.eventType}) missing bubblePosition. Event:`, {
-            eventType: event.eventType,
-            bubbleId: event.bubbleId,
-            column: event.column,
-            bubblePosition: event.bubblePosition,
-            round: event.round
-          });
-        }
-        
         // Get reaction time - use explicit check for undefined/null to preserve 0
         const reactionTimeMs = event.reactionTime !== undefined && event.reactionTime !== null 
           ? event.reactionTime 
@@ -355,16 +302,6 @@ class MotorSkillsTracker {
         const errorDistNorm = event.clickAccuracy !== undefined && event.clickAccuracy !== null
           ? event.clickAccuracy / minDim  // Normalize by min dimension
           : null;
-        
-        // Debug logging for first attempt
-        if (idx === 0) {
-          console.log(`   📊 Attempt timing data:`, {
-            reactionTime: event.reactionTime,
-            spawnTime: event.spawnTime,
-            clickAccuracy: event.clickAccuracy,
-            timestamp: event.timestamp,
-          });
-        }
         
         return {
           round: event.round,
@@ -401,11 +338,8 @@ class MotorSkillsTracker {
       
       try {
         await logMotorAttempts(this.sessionId, this.userId, attempts);
-        console.log(`🎯 Sent ${attempts.length} attempts for round ${round}`);
       } catch (error) {
-        console.error(`❌ Error sending attempts for round ${round}:`, error);
-        console.error('Error response:', error.response?.data || error.message);
-        console.error('Sample attempt:', attempts.slice(0, 1)); // Show first attempt
+        // Continue even if attempt send fails
       }
     }
   }
@@ -511,9 +445,6 @@ class MotorSkillsTracker {
       this.batchTimer = null;
     }
     
-    // Motor interactions are now stored via sendRoundDataToML() which uses
-    // logMotorAttempts - no global batch endpoint needed
-    console.log(`📦 Cleared ${batch.length} motor skill interactions from buffer`);
   }
 
   // Helper: Log interaction
@@ -539,19 +470,15 @@ class MotorSkillsTracker {
     try {
       await this.flushBatch();
     } catch (error) {
-      console.error('Error flushing final batch:', error);
+      // Continue even if flush fails
     }
     
     // Compute session summary on backend (aggregates all rounds)
     try {
-      const result = await computeSessionSummary(this.sessionId, this.participantId);
-      console.log(`📊 Session summary computed on backend`, result);
+      await computeSessionSummary(this.sessionId, this.participantId);
     } catch (error) {
-      console.error('❌ Error computing session summary:', error);
-      console.error('Error details:', error.response?.data || error.message);
+      // Continue even if summary computation fails
     }
-    
-    console.log(`✅ Motor skills tracking complete. Total interactions: ${this.interactions.length}`);
   }
 
   // Get all interactions

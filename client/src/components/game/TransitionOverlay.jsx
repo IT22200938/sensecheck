@@ -1,6 +1,14 @@
 import { useEffect, useState } from 'react';
 import { useGame, PROFILE_TRAITS } from '../../context/GameContext';
 
+// Challenge order for "next level" display
+const CHALLENGE_ORDER = [
+  { id: 'color-blindness', name: 'Pattern Hunt', icon: '🎨' },
+  { id: 'visual-acuity', name: 'Eagle Eye', icon: '🦅' },
+  { id: 'motor-skills', name: 'Bubble Pop', icon: '🎯' },
+  { id: 'knowledge-quiz', name: 'Quick Think', icon: '🧠' },
+];
+
 const TransitionOverlay = () => {
   const { state } = useGame();
   const [animationPhase, setAnimationPhase] = useState('entering');
@@ -9,7 +17,7 @@ const TransitionOverlay = () => {
     if (state.showingTransition) {
       setAnimationPhase('entering');
       setTimeout(() => setAnimationPhase('showing'), 100);
-      setTimeout(() => setAnimationPhase('exiting'), 1700);
+      setTimeout(() => setAnimationPhase('exiting'), 2200); // Extended to show next level message
     }
   }, [state.showingTransition]);
   
@@ -17,6 +25,11 @@ const TransitionOverlay = () => {
   
   // Find the newly unlocked trait
   const latestTrait = state.unlockedTraits[state.unlockedTraits.length - 1];
+  
+  // Determine next challenge (completed count = index of next challenge)
+  const completedCount = state.completedChallenges.length;
+  const nextChallenge = completedCount < CHALLENGE_ORDER.length ? CHALLENGE_ORDER[completedCount] : null;
+  const isLastChallenge = completedCount >= CHALLENGE_ORDER.length;
   
   return (
     <div 
@@ -89,6 +102,25 @@ const TransitionOverlay = () => {
               {latestTrait.description}
             </p>
           )}
+        </div>
+        
+        {/* Next Level Indicator */}
+        <div className={`mt-6 transition-all duration-500 delay-300 ${
+          animationPhase === 'showing' ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2'
+        }`}>
+          {nextChallenge ? (
+            <div className="flex items-center justify-center gap-2 px-4 py-2 rounded-full bg-gray-800/80 border border-gray-700">
+              <span className="text-gray-400 text-sm">Next up:</span>
+              <span className="text-lg">{nextChallenge.icon}</span>
+              <span className="text-white font-semibold">{nextChallenge.name}</span>
+              <span className="text-gray-500 animate-pulse">→</span>
+            </div>
+          ) : isLastChallenge ? (
+            <div className="flex items-center justify-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-amber-500/20 to-yellow-500/20 border border-amber-500/30">
+              <span className="text-2xl">🏆</span>
+              <span className="text-amber-400 font-semibold">Final Results Incoming!</span>
+            </div>
+          ) : null}
         </div>
         
         {/* Progress dots */}

@@ -24,10 +24,7 @@ const __dirname = path.dirname(__filename);
 
 const CSV_HEADERS = [
   // Session identifiers
-  'sessionId', 'participantId',
-  
-  // Game configuration
-  'game_gameVersion',
+  'sessionId', 'userId',
   
   // Per-round configuration (speed in px/frame, spawnInterval in ms)
   'r1_speedPxPerFrame', 'r2_speedPxPerFrame', 'r3_speedPxPerFrame',
@@ -452,11 +449,7 @@ async function buildSessionRow(session) {
   
   // 1. Session identifiers
   row.sessionId = session.sessionId;
-  // Generate participantId for legacy sessions that don't have one
-  row.participantId = session.participantId || `participant_${session.sessionId.split('_')[1] || 'unknown'}`;
-  
-  // 2. Game configuration
-  row.game_gameVersion = session.game?.gameVersion || '';
+  row.userId = session.userId || '';
   
   // Per-round game config (hardcoded from BUBBLE_PATTERNS in MotorSkillsGame.jsx)
   // Speed is in pixels per animation frame (at ~60fps)
