@@ -23,7 +23,7 @@ app.use(helmet({
 // Rate limiting
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: isProduction ? 100 : 1000,
+  max: isProduction ? 500 : 1000,
   message: { error: 'Too many requests, please try again later.' },
   standardHeaders: true,
   legacyHeaders: false,
@@ -35,9 +35,7 @@ app.use(compression());
 
 // CORS configuration
 const corsOptions = {
-  origin: isProduction 
-    ? process.env.ALLOWED_ORIGINS?.split(',') || true
-    : true,
+  origin: true, // Allow all origins for now
   credentials: true,
 };
 app.use(cors(corsOptions));
@@ -46,32 +44,59 @@ app.use(cors(corsOptions));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
+// Health check (no DB required)
+app.get('/api/health', (req, res) => {
+  res.json({ 
+    status: 'ok', 
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV,
+    mongoConfigured: !!process.env.MONGODB_URI,
+  });
+});
+
 // MongoDB Connection (with connection caching for serverless)
-let cachedDb = null;
+let cachedConnection = null;
 
 async function connectToDatabase() {
-  if (cachedDb && mongoose.connection.readyState === 1) {
-    return cachedDb;
+  if (cachedConnection && mongoose.connection.readyState === 1) {
+    return cachedConnection;
+  }
+  
+  if (!process.env.MONGODB_URI) {
+    throw new Error('MONGODB_URI environment variable is not set');
   }
   
   try {
-    await mongoose.connect(process.env.MONGODB_URI);
-    cachedDb = mongoose.connection;
+    const conn = await mongoose.connect(process.env.MONGODB_URI, {
+      bufferCommands: false,
+    });
+    cachedConnection = conn;
     console.log('MongoDB connected');
-    return cachedDb;
+    return cachedConnection;
   } catch (error) {
-    console.error('MongoDB connection error:', error);
+    console.error('MongoDB connection failed:', error.message);
+    cachedConnection = null;
     throw error;
   }
 }
 
-// Middleware to ensure DB connection
-app.use(async (req, res, next) => {
+// DB Connection middleware
+app.use('/api', async (req, res, next) => {
+  // Skip health check
+  if (req.path === '/health') {
+    return next();
+  }
+  
   try {
     await connectToDatabase();
     next();
   } catch (error) {
-    res.status(500).json({ error: 'Database connection failed' });
+    console.error('Database error:', error.message);
+    return res.status(500).json({ 
+      success: false,
+      error: 'Database connection failed',
+      message: error.message
+    });
   }
 });
 
@@ -81,20 +106,19 @@ app.use('/api/motor', motorRoutes);
 app.use('/api/impairment', impairmentRoutes);
 app.use('/api/device-context', deviceContextRoutes);
 
-// Health check
-app.get('/api/health', (req, res) => {
-  res.json({ 
-    status: 'ok', 
-    timestamp: new Date().toISOString(),
-    environment: process.env.NODE_ENV 
+// 404 handler for API routes
+app.use('/api/*', (req, res) => {
+  res.status(404).json({ 
+    success: false, 
+    error: 'API endpoint not found' 
   });
 });
 
-// Error handling
+// Global error handler
 app.use((err, req, res, next) => {
   console.error('Error:', err.message);
-  const statusCode = err.statusCode || 500;
-  res.status(statusCode).json({
+  console.error('Stack:', err.stack);
+  res.status(err.statusCode || 500).json({
     success: false,
     error: err.message || 'Internal Server Error',
   });
@@ -102,4 +126,3 @@ app.use((err, req, res, next) => {
 
 // Export for Vercel
 export default app;
-
