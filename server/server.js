@@ -4,7 +4,6 @@ import dotenv from 'dotenv';
 import mongoose from 'mongoose';
 import helmet from 'helmet';
 import compression from 'compression';
-import rateLimit from 'express-rate-limit';
 import { logger } from './services/logging/logger.js';
 import { requestLogger } from './middleware/requestLogger.js';
 import { errorHandler } from './middleware/errorHandler.js';
@@ -19,35 +18,18 @@ dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 5000;
-const isProduction = process.env.NODE_ENV === 'production';
 
 // Security middleware
 app.use(helmet({
-  crossOriginEmbedderPolicy: false, // Allow embedding for game assets
-  contentSecurityPolicy: isProduction ? undefined : false, // Disable CSP in development
+  crossOriginEmbedderPolicy: false,
+  contentSecurityPolicy: false,
 }));
-
-// Rate limiting
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: isProduction ? 100 : 1000, // Limit requests per window (more lenient in dev)
-  message: { error: 'Too many requests, please try again later.' },
-  standardHeaders: true,
-  legacyHeaders: false,
-});
-app.use('/api/', limiter);
 
 // Compression for better performance
 app.use(compression());
 
-// CORS configuration
-const corsOptions = {
-  origin: isProduction 
-    ? process.env.ALLOWED_ORIGINS?.split(',') || true
-    : true,
-  credentials: true,
-};
-app.use(cors(corsOptions));
+// CORS - allow all origins
+app.use(cors());
 
 // Body parsing
 app.use(express.json({ limit: '10mb' }));
@@ -55,10 +37,10 @@ app.use(express.urlencoded({ extended: true }));
 app.use(requestLogger);
 
 // Routes - ML-Ready APIs
-app.use('/api/results', resultsRoutes); // Session & module results
-app.use('/api/motor', motorRoutes); // Motor skills: trace, attempts, summaries
-app.use('/api/impairment', impairmentRoutes); // Impairment profiles & probabilities
-app.use('/api/device-context', deviceContextRoutes); // Device/viewport context
+app.use('/api/results', resultsRoutes);
+app.use('/api/motor', motorRoutes);
+app.use('/api/impairment', impairmentRoutes);
+app.use('/api/device-context', deviceContextRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {
@@ -101,4 +83,3 @@ process.on('SIGTERM', async () => {
   await mongoose.connection.close();
   process.exit(0);
 });
-

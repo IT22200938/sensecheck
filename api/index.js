@@ -3,7 +3,6 @@ import cors from 'cors';
 import mongoose from 'mongoose';
 import helmet from 'helmet';
 import compression from 'compression';
-import rateLimit from 'express-rate-limit';
 
 // Import routes
 import resultsRoutes from '../server/routes/results.js';
@@ -12,7 +11,6 @@ import impairmentRoutes from '../server/routes/impairment.js';
 import deviceContextRoutes from '../server/routes/deviceContext.js';
 
 const app = express();
-const isProduction = process.env.NODE_ENV === 'production';
 
 // Security middleware
 app.use(helmet({
@@ -20,25 +18,11 @@ app.use(helmet({
   contentSecurityPolicy: false,
 }));
 
-// Rate limiting
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: isProduction ? 500 : 1000,
-  message: { error: 'Too many requests, please try again later.' },
-  standardHeaders: true,
-  legacyHeaders: false,
-});
-app.use(limiter);
-
 // Compression
 app.use(compression());
 
-// CORS configuration
-const corsOptions = {
-  origin: true, // Allow all origins for now
-  credentials: true,
-};
-app.use(cors(corsOptions));
+// CORS - allow all origins
+app.use(cors());
 
 // Body parsing
 app.use(express.json({ limit: '10mb' }));
