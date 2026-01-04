@@ -1,12 +1,10 @@
 import winston from 'winston';
-import DailyRotateFile from 'winston-daily-rotate-file';
-import path from 'path';
-import { fileURLToPath } from 'url';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+// Check if running in serverless environment (Vercel sets this automatically)
+const isServerless = process.env.VERCEL === '1' || !!process.env.AWS_LAMBDA_FUNCTION_NAME;
+const isProduction = process.env.NODE_ENV === 'production';
 
-// Define log format
+// Define log format (JSON for better log aggregation)
 const logFormat = winston.format.combine(
   winston.format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
   winston.format.errors({ stack: true }),
@@ -14,7 +12,7 @@ const logFormat = winston.format.combine(
   winston.format.json()
 );
 
-// Console format for development
+// Console format for local development (colorized and readable)
 const consoleFormat = winston.format.combine(
   winston.format.colorize(),
   winston.format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
@@ -27,77 +25,66 @@ const consoleFormat = winston.format.combine(
   })
 );
 
-// Create logs directory path
-const logsDir = path.join(__dirname, '../../logs');
-
-// Daily rotate file transport for all logs
-const allLogsTransport = new DailyRotateFile({
-  filename: path.join(logsDir, 'application-%DATE%.log'),
-  datePattern: 'YYYY-MM-DD',
-  maxSize: '20m',
-  maxFiles: '14d',
-  format: logFormat,
-});
-
-// Daily rotate file transport for error logs
-const errorLogsTransport = new DailyRotateFile({
-  filename: path.join(logsDir, 'error-%DATE%.log'),
-  datePattern: 'YYYY-MM-DD',
-  level: 'error',
-  maxSize: '20m',
-  maxFiles: '30d',
-  format: logFormat,
-});
-
-// Daily rotate file transport for interaction logs
-const interactionLogsTransport = new DailyRotateFile({
-  filename: path.join(logsDir, 'interactions-%DATE%.log'),
-  datePattern: 'YYYY-MM-DD',
-  maxSize: '50m',
-  maxFiles: '30d',
-  format: logFormat,
-});
-
-// Create logger instance
+// Create logger with console transport only
+// Vercel captures console.log output automatically
 export const logger = winston.createLogger({
-  level: process.env.NODE_ENV === 'production' ? 'info' : 'debug',
+  level: isProduction ? 'info' : 'debug',
   format: logFormat,
   transports: [
-    allLogsTransport,
-    errorLogsTransport,
+    new winston.transports.Console({
+      format: isServerless || isProduction ? logFormat : consoleFormat,
+    })
   ],
 });
 
-// Add console transport in development
-if (process.env.NODE_ENV !== 'production') {
-  logger.add(new winston.transports.Console({
-    format: consoleFormat,
-  }));
-}
-
-// Separate logger for interactions
+// Interaction logger - also console only
 export const interactionLogger = winston.createLogger({
   level: 'info',
   format: logFormat,
-  transports: [interactionLogsTransport],
+  transports: [
+    new winston.transports.Console({
+      format: isServerless || isProduction ? logFormat : consoleFormat,
+    }),
+  ],
 });
 
-// Log uncaught exceptions and unhandled rejections
-logger.exceptions.handle(
-  new DailyRotateFile({
-    filename: path.join(logsDir, 'exceptions-%DATE%.log'),
-    datePattern: 'YYYY-MM-DD',
-    maxSize: '20m',
-    maxFiles: '14d',
-  })
-);
+// Add file transports only in local development
+if (!isServerless && !isProduction) {
+  import('winston-daily-rotate-file').then((module) => {
+    const DailyRotateFile = module.default;
+    import('path').then((path) => {
+      import('url').then(({ fileURLToPath }) => {
+        const __filename = fileURLToPath(import.meta.url);
+        const __dirname = path.dirname(__filename);
+        const logsDir = path.join(__dirname, '../../logs');
 
-logger.rejections.handle(
-  new DailyRotateFile({
-    filename: path.join(logsDir, 'rejections-%DATE%.log'),
-    datePattern: 'YYYY-MM-DD',
-    maxSize: '20m',
-    maxFiles: '14d',
-  })
-);
+        logger.add(new DailyRotateFile({
+          filename: path.join(logsDir, 'application-%DATE%.log'),
+          datePattern: 'YYYY-MM-DD',
+          maxSize: '20m',
+          maxFiles: '14d',
+          format: logFormat,
+        }));
 
+        logger.add(new DailyRotateFile({
+          filename: path.join(logsDir, 'error-%DATE%.log'),
+          datePattern: 'YYYY-MM-DD',
+          level: 'error',
+          maxSize: '20m',
+          maxFiles: '30d',
+          format: logFormat,
+        }));
+
+        interactionLogger.add(new DailyRotateFile({
+          filename: path.join(logsDir, 'interactions-%DATE%.log'),
+          datePattern: 'YYYY-MM-DD',
+          maxSize: '50m',
+          maxFiles: '30d',
+          format: logFormat,
+        }));
+      });
+    });
+  }).catch(() => {
+    // File logging not available, continue with console only
+  });
+}
